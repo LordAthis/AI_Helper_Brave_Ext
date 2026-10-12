@@ -1,11 +1,11 @@
-// Segítő – MI-beszélgetések modul: közös rész (oldalak, HTML → Markdown, segédek) (v0.5.26 · modul v0.1.0)
+// Segítő – MI-beszélgetések modul: közös rész (oldalak, HTML → Markdown, segédek) (v0.5.27 · modul v0.1.1)
 // A MODUL (CLAUDE.md → „Modulok”): ugyanez a mappa a Segítő része (panel a gyorspanelen), és ÖNÁLLÓ bővítményként is
 // betölthető (saját manifest.json). Az adatai teljesen külön vannak: saját adatbázis („segito-aik”), saját beállítások
 // (chrome.storage.local „aik_settings”), saját export-mappa („segito-aik/<Oldal>/…”). A Segítő többi részéhez nem nyúl.
 // Ez a fájl a tartalomszkriptben, a háttérben és a panelen is fut – csak tiszta segédek vannak benne.
 (function (g) {
   if (g.AIK) return;
-  const VERSION = '0.1.0';
+  const VERSION = '0.1.1';
 
   // Az oldalak. folder: az export almappája; auto: alapból menti-e magától (LordAthis kérése: a Claude NEM – „sokkal
   // ügyesebben dolgozol”); ready: van-e az oldalhoz ellenőrzött feldolgozó (mentett minta alapján) – amelyiknél nincs,
@@ -14,8 +14,9 @@
     { id: 'chatgpt', name: 'ChatGPT', folder: 'ChatGPT', home: ['https://chatgpt.com/'], auto: true, ready: true, sample: '2026-10-12' },
     { id: 'grok', name: 'Grok', folder: 'Grok', home: ['https://grok.com/'], auto: true, ready: true, sample: '2026-10-12' },
     { id: 'google-ai', name: 'Google AI-mód (Gemini)', short: 'AI-mód', folder: 'Gemini', home: ['https://www.google.com/'], auto: true, ready: true, sample: '2026-10-12' },
-    { id: 'gemini', name: 'Gemini', folder: 'Gemini', home: ['https://gemini.google.com/app', 'https://gemini.google.com/'], auto: true, ready: false },
-    { id: 'claude', name: 'Claude', folder: 'Claude', home: ['https://claude.ai/'], auto: false, ready: false }
+    { id: 'gemini', name: 'Gemini', folder: 'Gemini', home: ['https://gemini.google.com/app', 'https://gemini.google.com/'], auto: true, ready: true, sample: '2026-10-12' },
+    { id: 'claude', name: 'Claude', folder: 'Claude', home: ['https://claude.ai/'], auto: false, ready: true, sample: '2026-10-12' },
+    { id: 'perplexity', name: 'Perplexity', folder: 'Perplexity', home: ['https://www.perplexity.ai/'], auto: true, ready: true, sample: '2026-10-12' }
   ];
   const site = (id) => SITES.find(s => s.id === id) || null;
   // melyik oldal ez a cím? (a Google keresőből csak az AI-mód: udm=50, vagy az AI-mód beszélgetés-gyökere van az oldalon)
@@ -26,6 +27,7 @@
     if (h === 'grok.com') return 'grok';
     if (h === 'gemini.google.com') return 'gemini';
     if (h === 'claude.ai') return 'claude';
+    if (h === 'perplexity.ai') return 'perplexity';
     if (/^google\.[a-z.]+$/.test(h) && u.pathname === '/search') return 'google-ai';
     return null;
   }
@@ -43,6 +45,9 @@
     let el = pre;
     for (let i = 0; i < 4 && el && el.parentElement; i++) {
       el = el.parentElement;
+      // v0.5.27: a kódblokk dobozánál feljebb nem megyünk – ahol már bekezdés is van, az a válasz szövege, nem a fejléc
+      // (különben az előző bekezdés `kód` szava lett a „nyelv” – Claude-minta)
+      if (el.querySelector('p, li, h1, h2, h3, h4, h5, h6')) break;
       const walker = el.ownerDocument.createTreeWalker(el, 4 /* SHOW_TEXT */);
       let n;
       while ((n = walker.nextNode())) {
@@ -53,6 +58,9 @@
     }
     return '';
   }
+  // v0.5.27: az egyedi (kötőjeles nevű) elem – pl. a Gemini response-element / table-block – blokk, ha blokk van benne
+  const BLOCK_RE = /^(P|DIV|UL|OL|PRE|TABLE|H[1-6]|BLOCKQUOTE|SECTION|ARTICLE)$/;
+  const isBlock = (c) => BLOCK_RE.test(c.tagName) || c.getAttribute('role') === 'heading' || (c.tagName.includes('-') && !!c.querySelector('p,div,ul,ol,pre,table,h1,h2,h3,h4,h5,h6,blockquote'));
   function md(root, opt = {}) {
     const out = [];
     const inline = (node) => {
@@ -84,14 +92,13 @@
       if (t === 'TABLE') { const rows = [...node.querySelectorAll('tr')].map(tr => [...tr.children].map(td => inline(td).trim().replace(/\|/g, '/'))); if (rows.length) { out.push(['| ' + rows[0].join(' | ') + ' |', '| ' + rows[0].map(() => '---').join(' | ') + ' |', ...rows.slice(1).map(r => '| ' + r.join(' | ') + ' |')].join('\n')); } return; }
       if (t === 'BLOCKQUOTE') { flush(inline(node).trim().split('\n').map(l => '> ' + l).join('\n')); return; }
       // ha a blokkban csak szöveg / inline elem van → egy bekezdés; különben a gyermekek egyenként
-      const hasBlock = [...node.children].some(c => /^(P|DIV|UL|OL|PRE|TABLE|H[1-6]|BLOCKQUOTE|SECTION|ARTICLE)$/.test(c.tagName) || c.getAttribute('role') === 'heading');
+      const hasBlock = [...node.children].some(isBlock);
       if (!hasBlock) { flush(inline(node)); return; }
       let buf = '';
       for (const ch of node.childNodes) {
         if (ch.nodeType === 3) { buf += ch.nodeValue.replace(/\s+/g, ' '); continue; }
         if (ch.nodeType !== 1 || SKIP.has(ch.tagName) || (opt.skip && opt.skip(ch))) continue;
-        const isBlock = /^(P|DIV|UL|OL|PRE|TABLE|H[1-6]|BLOCKQUOTE|SECTION|ARTICLE)$/.test(ch.tagName) || ch.getAttribute('role') === 'heading';
-        if (isBlock) { flush(buf); buf = ''; block(ch); } else buf += inline(ch);
+        if (isBlock(ch)) { flush(buf); buf = ''; block(ch); } else buf += inline(ch);
       }
       flush(buf);
     }

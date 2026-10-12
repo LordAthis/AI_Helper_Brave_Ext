@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.26 · modul v0.1.0)
+// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.27 · modul v0.1.1)
 // Lapok: Beszélgetések (keresés: szöveg, oldal, dátum, kódnyelv), Megnyitva (fordulók, változatok és összevetésük, export
 // egyenként: MD / JSON / HTML / TXT / DOCX / PDF), Export (ZIP: segito-aik/<oldal>/…), Beállítások (a modul saját lapja).
 /* global AIK, AIKDB, AIK_EX, SegitoUI */
@@ -182,7 +182,7 @@
       if (r && r.ok) ok++; else bad.push(`${(AIK.site(AIK.siteOfUrl(t.url)) || {}).name}: ${(r && (r.error || (r.off && 'kikapcsolva'))) || 'az oldal még nem töltötte be a modult (frissítsd az oldalt)'}`);
     }
     done();
-    SegitoUI.toast(!tabs.length ? 'Nincs nyitva támogatott beszélgetés (ChatGPT, Grok, Google AI-mód).' : `${ok} beszélgetés mentve.${bad.length ? ' Nem sikerült: ' + bad.join('; ') : ''}`, !tabs.length ? 'info' : bad.length ? 'warn' : 'ok');
+    SegitoUI.toast(!tabs.length ? 'Nincs nyitva támogatott beszélgetés (ChatGPT, Grok, Gemini, Google AI-mód, Claude).' : `${ok} beszélgetés mentve.${bad.length ? ' Nem sikerült: ' + bad.join('; ') : ''}`, !tabs.length ? 'info' : bad.length ? 'warn' : 'ok');
     load();
   });
 
