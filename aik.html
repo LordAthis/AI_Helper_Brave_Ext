@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<!-- Segítő – MI-beszélgetések modul: panel (v0.5.26 · modul v0.1.0) – a Segítőben a gyorspanelről nyílik, önálló bővítményként
+     az ikonjára kattintva. A beállításai kivételesen itt, a saját „Beállítások” lapján vannak (LordAthis kérése). -->
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>MI-beszélgetések</title>
+  <link rel="icon" href="kozos/icon16.png">
+  <link rel="stylesheet" href="kozos/segito.css">
+  <style>
+    .sw { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; padding:10px 0; border-bottom:1px solid #34363b; }
+    .sw:last-child { border-bottom:none; }
+    .sw .t > b { display:block; } .sw .t > span { color:var(--muted); font-size:13px; }
+    .sw .ctl { flex:none; display:flex; gap:8px; align-items:center; }
+    tr.row { cursor:pointer; } tr.row:hover td { background:rgba(138,180,248,.06); }
+    .snip { color:var(--muted); font-size:12.5px; margin-top:2px; }
+    mark { background:rgba(245,180,0,.35); color:inherit; border-radius:2px; }
+    .turn { border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin:10px 0; background:var(--card); }
+    .turn.user { border-left:4px solid var(--accent); } .turn.assistant { border-left:4px solid var(--ok); }
+    .turn .who { font-weight:700; color:var(--muted); font-size:13px; margin-bottom:4px; }
+    .turn p { margin:6px 0; }
+    pre.code { position:relative; background:#111215; border:1px solid var(--line); border-radius:6px; padding:10px; overflow:auto; white-space:pre-wrap; }
+    pre.code .lang { position:absolute; top:2px; right:8px; font-size:11px; color:var(--muted); }
+    .diff { background:#111215; border:1px solid var(--line); border-radius:6px; padding:8px; max-height:520px; overflow:auto; white-space:pre-wrap; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; }
+    .diff .a { color:#81c995; background:rgba(52,168,83,.10); } .diff .r { color:#f28b82; background:rgba(234,67,53,.10); } .diff .s { color:var(--muted); }
+    .site-ico.sm { width:16px; height:16px; vertical-align:-3px; margin-right:6px; border-radius:3px; }
+    .chips { display:flex; gap:6px; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="top fixed">
+      <div><h1>MI-beszélgetések</h1><div id="status-line" class="muted">Betöltés… <span class="spin"></span></div></div>
+      <div class="actwrap">
+        <div class="actions">
+          <button id="btn-save-open" title="A böngészőben most nyitott, támogatott beszélgetések mentése azonnal (akkor is, ha az automatikus mentés ki van kapcsolva)" data-ico="save">Nyitottak mentése</button>
+          <button id="btn-export-all" title="Minden mentett beszélgetés egy ZIP-ben: segito-aik / &lt;oldal&gt; / …">Mind exportálása</button>
+        </div>
+        <div id="act-note" class="act-note muted" aria-live="polite"></div>
+      </div>
+    </div>
+    <nav id="p-nav">
+      <button data-tab="list" class="active">Beszélgetések <span id="n-badge" class="tag blue"></span></button>
+      <button data-tab="view" id="nav-view" hidden>Megnyitva</button>
+      <button data-tab="export">Export</button>
+      <button data-tab="set">Beállítások</button>
+    </nav>
+  </header>
+  <main>
+    <section id="tab-list" class="active">
+      <div class="toolbar">
+        <input type="search" id="q" placeholder="Keresés a mentett beszélgetésekben (cím és szöveg)…">
+        <select id="f-site" title="Oldal"><option value="">Minden oldal</option></select>
+        <label class="c" title="Ettől a naptól">Tól <input type="date" id="f-from"></label>
+        <label class="c" title="Eddig a napig">Ig <input type="date" id="f-to"></label>
+        <select id="f-lang" title="Kódnyelv (a beszélgetés kódblokkjai alapján)"><option value="">Minden kódnyelv</option></select>
+        <label class="c"><input type="checkbox" id="f-code"> Csak kóddal</label>
+        <span class="muted" id="count"></span>
+      </div>
+      <div id="list"><div class="empty"><span class="spin"></span> Betöltés…</div></div>
+    </section>
+
+    <section id="tab-view">
+      <div id="view"></div>
+    </section>
+
+    <section id="tab-export">
+      <div class="card">
+        <h2>Export – MI-nek és embernek</h2>
+        <p class="muted">A ZIP-ben oldalanként külön mappa: <code>segito-aik/ChatGPT/…</code>, <code>segito-aik/Grok/…</code>, <code>segito-aik/Gemini/…</code>, <code>segito-aik/Claude/…</code>, a fájlnév elején a beszélgetés dátuma; mellette egy <code>tartalom.md</code> jegyzék. A letöltés a böngésző Letöltések mappájába kerül (<code>segito-aik</code> almappa).</p>
+        <div class="toolbar">
+          <label class="c"><input type="radio" name="ex-scope" value="all" checked> Minden mentett beszélgetés</label>
+          <label class="c"><input type="radio" name="ex-scope" value="filter"> Csak a mostani szűrés (<span id="ex-n">0</span>)</label>
+        </div>
+        <div class="toolbar chips">
+          <label class="c"><input type="checkbox" class="ex-f" value="md" checked> Markdown</label>
+          <label class="c"><input type="checkbox" class="ex-f" value="json" checked> JSON</label>
+          <label class="c"><input type="checkbox" class="ex-f" value="html"> HTML</label>
+          <label class="c"><input type="checkbox" class="ex-f" value="txt"> TXT</label>
+          <label class="c"><input type="checkbox" class="ex-f" value="docx"> DOCX (Word)</label>
+          <span class="muted">PDF: egy beszélgetés megnyitásakor, a „PDF” gombbal (a böngésző nyomtatásával – „Mentés PDF-ként”).</span>
+        </div>
+        <div class="toolbar"><button id="ex-run" class="primary" data-ico="save">ZIP letöltése</button><span class="muted" id="ex-info"></span></div>
+      </div>
+    </section>
+
+    <section id="tab-set">
+      <div class="card">
+        <h2>Mentés</h2>
+        <div class="sw"><div class="t"><b>A modul bekapcsolva</b><span>Kikapcsolva semmit nem ment (a már mentett beszélgetések megmaradnak és kereshetők).</span></div><div class="ctl"><input type="checkbox" class="toggle" id="s-enabled"></div></div>
+        <div id="s-sites"></div>
+        <div class="sw"><div class="t"><b>Új változat</b><span>Ha egy beszélgetés csak <b>bővült</b> (új forduló, vagy a válasz befejeződött), a legutóbbi változat frissül, és legfeljebb ennyi óránként keletkezik új. Ha egy korábbi rész <b>megváltozott</b> (szerkesztett kérdés, újragenerált válasz), mindig új változat lesz – így a korábbi is megmarad.</span></div><div class="ctl"><input type="number" id="s-vh" min="0" max="720" step="1" style="width:80px"> óra</div></div>
+        <div class="toolbar" style="margin-top:10px"><button id="s-save" class="primary" data-ico="save">Mentés</button></div>
+      </div>
+      <div class="card">
+        <h2>Az adatok helye</h2>
+        <p class="muted" id="s-where"></p>
+        <div class="toolbar"><span class="push"></span><button id="s-wipe" class="small" data-ico="trash">Minden mentett beszélgetés törlése</button></div>
+      </div>
+    </section>
+  </main>
+  <script src="kozos/ui.js"></script>
+  <script src="aik-common.js"></script>
+  <script src="aik-db.js"></script>
+  <script src="aik-export.js"></script>
+  <script src="aik.js"></script>
+</body>
+</html>

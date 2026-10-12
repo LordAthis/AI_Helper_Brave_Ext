@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Segítő – MI-beszélgetések",
+  "short_name": "MI-beszélgetések",
+  "version": "0.1.0",
+  "version_name": "0.1.0 (Segítő v0.5.26)",
+  "description": "Az MI-csevegések (ChatGPT, Grok, Google AI-mód) mentése a saját gépen: keresés, export (Markdown, JSON, HTML, TXT, DOCX, PDF), változatok. Az adatok csak ezen a gépen.",
+  "homepage_url": "https://github.com/LordAthis/Brave_extension",
+  "icons": { "16": "kozos/icon16.png", "48": "kozos/icon48.png", "128": "kozos/icon128.png" },
+  "action": { "default_icon": { "16": "kozos/icon16.png" }, "default_title": "MI-beszélgetések" },
+  "background": { "service_worker": "aik-sw.js" },
+  "permissions": ["storage", "downloads", "tabs", "favicon", "unlimitedStorage"],
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://grok.com/*", "https://www.google.com/search*", "https://gemini.google.com/*", "https://claude.ai/*"],
+      "js": ["aik-common.js", "aik-adapters.js", "aik-capture.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

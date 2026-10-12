@@ -1,0 +1,195 @@
+/* Segítő – közös stíluslap a saját oldalakhoz (v0.5.26) – sötét téma, fehér „papír” nélkül */
+:root { color-scheme: dark; --bg:#1c1d20; --card:#26282c; --line:#44474d; --text:#e8eaed; --muted:#9aa0a6; --accent:#8ab4f8; --ok:#34a853; --warn:#f5b400; --bad:#ea4335; }
+* { box-sizing: border-box; }
+body { margin:0; font:14px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--text); }
+header { position:sticky; top:0; z-index:2; background:var(--bg); border-bottom:1px solid var(--line); padding:14px clamp(12px, 2vw, 28px) 0; }
+.top { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
+h1 { font-size:20px; margin:0; } h2 { font-size:16px; margin:0 0 10px; } h3 { font-size:15px; margin:14px 0 6px; }
+.muted { color:var(--muted); } .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); }
+.actions, .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+/* v0.5.21: a „hidden” jellemző mindig rejt (a display:flex-es soroknál – pl. .toolbar – különben látszana) */
+[hidden] { display:none !important; }
+.toolbar { margin-bottom:10px; }
+button, select, input, textarea { font:inherit; color:var(--text); background:#303236; border:1px solid var(--line); border-radius:4px; }
+button { padding:6px 12px; cursor:pointer; color:var(--accent); border-color:var(--accent); background:transparent; }
+button:hover:not(:disabled) { background:#303236; } button:disabled { opacity:.4; cursor:default; }
+button.primary { background:var(--accent); color:#111; } button.primary:hover { background:#aecbfa; }
+button.danger { color:var(--bad); border-color:var(--bad); }
+button.small { padding:2px 8px; font-size:12px; }
+nav { display:flex; gap:4px; margin-top:12px; overflow-x:auto; }
+nav button { border:none; border-bottom:2px solid transparent; border-radius:0; color:var(--muted); padding:8px 14px; white-space:nowrap; background:transparent; }
+nav button.active { color:var(--text); border-bottom-color:var(--accent); }
+/* v0.5.26: széles képernyőn is kitölti a helyet (LordAthis: „sok a felesleges üres rész”) – a margó a szélességgel nő, a tartalom legfeljebb 1800 px */
+main { padding:16px clamp(12px, 2vw, 28px) 60px; max-width:1800px; margin:0 auto; }
+section { display:none; } section.active { display:block; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:14px; }
+.danger-card { border-color:var(--bad); }
+/* v0.5.18: oldalankénti védőkorlát – a leállt oldalak sorai, mindegyik saját „Folytatás” gombbal */
+.halt-row { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); }
+.halt-row:first-child { border-top:0; }
+.halt-row > div { min-width:0; overflow-wrap:anywhere; }
+.halt-row button { flex:none; }
+/* v0.5.19: összetartozó oszlopok (pl. Árelemzés: db | átlag | min | max) – a csoport elején erősebb, belül halvány elválasztó */
+td.sep, th.sep { border-left:1px solid #4a4d55; }
+td.sub, th.sub { border-left:1px solid #303238; }
+th .grp { display:block; font-size:11px; color:var(--accent); font-weight:600; white-space:nowrap; }
+/* v0.5.19: „Mind kijelölése” a kategória-kártya fejlécében */
+.grp-all { margin-left:14px; font-size:13px; font-weight:400; color:var(--text); cursor:pointer; white-space:nowrap; }
+.grp-all input { vertical-align:middle; margin-right:4px; }
+/* v0.5.18: tempó oldalanként – a számmezők férjenek ki */
+#s-tempo input[type=number] { width:100px; }
+#now td, #s-tempo td { vertical-align:middle; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; }
+.grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:14px; }
+.stat { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+.stat b { display:block; font-size:22px; font-variant-numeric:tabular-nums; }
+label.f { display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--muted); }
+label.f input, label.f select { padding:6px 8px; }
+label.c { display:inline-flex; gap:6px; align-items:center; }
+input[type=search] { flex:1; min-width:200px; padding:6px 10px; }
+textarea { width:100%; min-height:120px; padding:8px; margin-top:8px; font-family:ui-monospace, monospace; }
+table { width:100%; border-collapse:collapse; background:var(--card); border-radius:8px; overflow:hidden; }
+th, td { padding:6px 9px; border-bottom:1px solid #34363b; text-align:left; vertical-align:top; }
+th { color:var(--muted); font-weight:600; font-size:12px; }
+td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+.tag { display:inline-block; padding:0 6px; border-radius:3px; font-size:11px; background:rgba(245,180,0,.18); color:var(--warn); margin-left:4px; }
+.tag.blue { background:rgba(138,180,248,.18); color:var(--accent); }
+.plan-row { display:flex; gap:10px; align-items:center; padding:3px 0; font-variant-numeric:tabular-nums; }
+.plan-row.now { color:var(--ok); font-weight:600; } .plan-row.past { color:var(--muted); }
+.bar { height:6px; border-radius:3px; background:#34363b; overflow:hidden; } .bar > i { display:block; height:100%; background:var(--accent); }
+.result { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin-bottom:8px; }
+.result .meta { font-size:12px; color:var(--muted); }
+.result mark { background:rgba(245,180,0,.3); color:inherit; }
+.split { display:grid; grid-template-columns:260px 1fr; gap:14px; }
+aside { display:flex; flex-direction:column; gap:2px; max-height:75vh; overflow:auto; }
+aside button { text-align:left; border:none; color:var(--text); padding:5px 8px; background:transparent; }
+aside button.active { background:#303236; } aside .head { color:var(--muted); font-size:12px; margin:10px 8px 4px; }
+.post { background:var(--card); border:1px solid var(--line); border-radius:8px; margin-bottom:10px; }
+.post .ph { display:flex; justify-content:space-between; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); font-size:13px; color:var(--muted); flex-wrap:wrap; }
+.post .pb { padding:10px 12px; overflow-wrap:anywhere; }
+.post .pb img { max-width:100%; height:auto; }
+.post .pb blockquote, .post .pb [class*=quote] { border-left:3px solid var(--line); margin:6px 0; padding:4px 10px; color:var(--muted); }
+.post .pb table, .post .pb td { background:transparent; border:none; }
+.empty { padding:24px; text-align:center; color:var(--muted); background:var(--card); border-radius:8px; }
+@media (max-width:760px) { .split { grid-template-columns:1fr; } main, header { padding-left:12px; padding-right:12px; } }
+/* ---- v0.5.17: közös felületi elemek (common/ui.js) ---- */
+.ico { width:16px; height:16px; vertical-align:-3px; flex:none; }
+button.icon-btn { padding:4px 7px; line-height:1; display:inline-flex; align-items:center; justify-content:center; }
+button.icon-btn .ico { vertical-align:0; }
+button.icon-btn.danger:hover:not(:disabled) { background:rgba(234,67,53,.15); }
+/* forgó jel: a várakozás visszajelzése */
+@keyframes segito-spin { to { transform:rotate(360deg); } }
+.spin { display:inline-block; width:13px; height:13px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; vertical-align:-2px; animation:segito-spin .7s linear infinite; }
+.refresh-btn.on .ico, .spinning .ico { animation:segito-spin .9s linear infinite; }
+.snap-row { display:flex; gap:10px; align-items:center; margin:0 0 10px; min-height:30px; }
+button.refresh-btn { border-radius:50%; width:30px; height:30px; padding:0; display:inline-flex; align-items:center; justify-content:center; }
+@media (prefers-reduced-motion: reduce) { .spin, .refresh-btn.on .ico, .spinning .ico { animation-duration:2.4s; } }
+/* értesítő sáv (a böngésző felugró ablaka helyett) */
+#segito-toasts { position:fixed; right:16px; bottom:16px; z-index:50; display:flex; flex-direction:column; gap:8px; max-width:min(560px, calc(100vw - 32px)); }
+.toast { display:flex; gap:10px; align-items:flex-start; background:#2f3237; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:8px; padding:10px 12px; box-shadow:0 6px 24px rgba(0,0,0,.45); overflow-wrap:anywhere; }
+.toast.ok { border-left-color:var(--ok); } .toast.bad { border-left-color:var(--bad); } .toast.warn { border-left-color:var(--warn); }
+.toast button { border:none; padding:0 4px; color:var(--muted); font-size:18px; line-height:1; margin-left:auto; flex:none; }
+/* állítható oszlopok */
+.tbl-wrap { overflow-x:auto; border-radius:8px; }
+.tbl-wrap > table th { position:relative; }
+.tbl-wrap > table[style*="fixed"] td, .tbl-wrap > table[style*="fixed"] th { overflow:hidden; text-overflow:ellipsis; overflow-wrap:anywhere; }
+.col-grip { position:absolute; top:0; right:0; width:9px; height:100%; cursor:col-resize; user-select:none; touch-action:none; }
+.col-grip::after { content:''; position:absolute; top:22%; bottom:22%; right:3px; width:1px; background:var(--line); }
+.col-grip:hover::after, .col-grip.on::after { background:var(--accent); width:2px; right:2px; }
+/* lapfülek a kezelőoldalon (Felhasználók kezelése) */
+.tag.bad { background:rgba(234,67,53,.18); color:var(--bad); }
+.tag.ok { background:rgba(52,168,83,.18); color:var(--ok); }
+td input.cell, td textarea.cell { width:100%; min-height:0; margin:0; padding:4px 6px; font:inherit; resize:vertical; }
+.tag:empty { display:none; }
+td[data-st] { white-space:nowrap; }
+
+/* ---------- v0.5.22: szerkezet-kész panelek, tervezett oldalak, minta-adat jelölése ---------- */
+.tag.plan { background:rgba(154,160,166,.18); color:var(--muted); }
+/* minta-adat / szerkezet figyelmeztető keret – minden szerkezet-kész panel tetején */
+.sample-card { border:1px dashed var(--warn); background:rgba(245,180,0,.07); color:var(--text); }
+.sample-card b { color:var(--warn); }
+tr.sample td { color:var(--muted); font-style:italic; }
+tr.planned td { opacity:.75; }
+.chip { display:inline-block; padding:1px 8px; margin:2px 2px 2px 0; border:1px solid var(--line); border-radius:10px; font-size:12px; }
+.chip.planned { color:var(--muted); border-style:dashed; }
+/* bal oldalon bontható fa, jobb oldalon a kiválasztott elem részletei */
+.split { display:grid; grid-template-columns:minmax(220px, 280px) 1fr; gap:14px; align-items:start; }
+@media (max-width: 820px) { .split { grid-template-columns:1fr; } }
+.tree { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; max-height:70vh; overflow:auto; }
+.tree details { margin:2px 0; }
+.tree summary { cursor:pointer; padding:3px 4px; border-radius:4px; font-weight:bold; }
+.tree summary:hover, .tree .leaf:hover { background:rgba(138,180,248,.10); }
+.tree .leaf { display:flex; justify-content:space-between; gap:8px; align-items:center; width:100%; padding:3px 6px 3px 20px; border:0; border-radius:4px; background:transparent; color:var(--text); text-align:left; cursor:pointer; font:inherit; white-space:normal; }
+.tree .leaf.active { background:rgba(138,180,248,.18); color:var(--accent); }
+.tree .leaf .n { color:var(--muted); font-size:12px; white-space:nowrap; }
+.kv { display:grid; grid-template-columns:max-content 1fr; gap:4px 14px; margin:6px 0; }
+.kv dt { color:var(--muted); } .kv dd { margin:0; }
+button[disabled].soon { opacity:.55; cursor:not-allowed; }
+
+/* ---------- v0.5.23 ---------- */
+/* napló napokra bontva (SegitoUI.dayLog): naponként egy lenyitható doboz */
+details.daylog { background:var(--card); border:1px solid var(--line); border-radius:8px; margin-bottom:10px; overflow:hidden; }
+details.daylog > summary { cursor:pointer; padding:9px 14px; list-style:none; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+details.daylog > summary::-webkit-details-marker { display:none; }
+details.daylog > summary::before { content:'▸'; color:var(--muted); width:12px; flex:none; }
+details.daylog[open] > summary::before { content:'▾'; }
+details.daylog[open] > summary { border-bottom:1px solid var(--line); }
+details.daylog > table { border-radius:0; }
+/* eszköztár: függőleges elválasztó vonal, jobbra tolt (ritkán használt, „veszélyes”) gombok, „mindig ezzel kezdjen” pipa */
+.vsep { display:inline-block; width:1px; align-self:stretch; min-height:24px; background:var(--line); margin:0 6px; flex:none; }
+.toolbar .push { margin-left:auto; }
+label.pin { display:inline-flex; gap:5px; align-items:center; font-size:12px; color:var(--muted); white-space:nowrap; cursor:pointer; }
+label.pin input:checked + span { color:var(--warn); }
+/* lapfülsor: csoport-elválasztó és rövid (betűjeles) oldal-lapfülek */
+nav .nsep { flex:none; width:1px; background:var(--line); margin:6px 6px 8px; }
+nav button.mono { padding:8px 9px; }
+.mono-badge { display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:22px; padding:0 6px; border:1px solid currentColor; border-radius:6px; font-size:12px; font-weight:700; letter-spacing:.2px; line-height:1; }
+/* több választható témakör (lenyíló lista pipákkal) */
+details.multi { display:inline-block; position:relative; }
+details.multi > summary { list-style:none; cursor:pointer; padding:2px 8px; border:1px solid var(--line); border-radius:4px; font-size:12px; white-space:nowrap; color:var(--accent); font-style:normal; }
+details.multi > summary::-webkit-details-marker { display:none; }
+details.multi > summary::after { content:' ▾'; color:var(--muted); }
+/* a lista rögzített helyzetű (a helyét a panel szkriptje állítja be nyitáskor), így a görgethető táblázat-keret nem vágja le */
+details.multi > .list { position:fixed; z-index:60; min-width:190px; max-height:260px; overflow:auto; background:#2f3237; border:1px solid var(--line); border-radius:6px; padding:6px 8px; box-shadow:0 6px 24px rgba(0,0,0,.45); font-style:normal; }
+details.multi > .list label { display:flex; gap:6px; align-items:center; padding:2px 0; white-space:nowrap; color:var(--text); }
+td.act { white-space:nowrap; width:1%; }
+/* MTT: melyik gépen megy – egyértelmű állapotjelző */
+.state-pill { display:inline-flex; align-items:center; gap:6px; padding:3px 12px; border-radius:14px; font-weight:700; border:1px solid currentColor; }
+.state-pill.ok { color:var(--ok); background:rgba(52,168,83,.12); } .state-pill.warn { color:var(--warn); background:rgba(245,180,0,.10); } .state-pill.bad { color:var(--bad); background:rgba(234,67,53,.10); } .state-pill.off { color:var(--muted); }
+/* szem ikon: figyelés ki / be (hirdetés, felhasználó) */
+button.eye { border:none; padding:2px 4px; color:var(--muted); opacity:.55; } button.eye:hover { opacity:1; }
+button.eye.on { color:#ffd166; opacity:1; }
+/* v0.5.24: a fejléc gombsora a HELYÉN MARAD – a bal oldali állapotsor tördelhet, a gombsor nem ugrik át alá / a másik oldalra.
+   A gombok mérete munka közben sem változik (common/ui.js: busy / working); a részletek a gombsor alatti sorba kerülnek,
+   aminek a helye előre le van foglalva (.act-note). Keskeny ablakban a gombsor MINDIG külön sorba kerül (nem a szövegtől függ). */
+.top.fixed { flex-wrap:nowrap; align-items:flex-start; }
+.top.fixed > :first-child { flex:1 1 0; min-width:0; }
+.top.fixed > .actwrap { flex:0 0 auto; max-width:100%; display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
+.top.fixed .actions { flex-wrap:nowrap; }
+/* width:0 + min-width:100%: a sor a gombsor szélességét veszi fel, de a HOSSZÚ SZÖVEGE nem szélesíti a dobozt (különben a bal oldali állapotsort szorítaná össze) */
+.act-note { width:0; min-width:100%; box-sizing:border-box; min-height:16px; font-size:12px; line-height:16px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+@media (max-width:1180px) {
+  .top.fixed { flex-wrap:wrap; }
+  .top.fixed > :first-child { flex-basis:100%; }
+  .top.fixed > .actwrap { align-items:flex-start; }
+  .top.fixed .actions { flex-wrap:wrap; }
+  .act-note { text-align:left; }
+}
+/* v0.5.24: eszköztár-gomb haladása (gomb: data-note="<azonosító>") – mindig SAJÁT sorban, az eszköztár alatt jelenik meg, így a
+   megjelenő szöveg az eszköztár elemeit (gombok, kereső) nem tolja el; üresen nem foglal helyet */
+.toolbar .prog { flex-basis:100%; order:99; margin-top:-4px; font-size:12px; line-height:16px; }
+.toolbar .prog:empty { display:none; }
+/* v0.5.24: az oldal saját ikonja a lapfülön (a böngésző ikontárából – common/ui.js: favicon); ha nincs, marad a betűjel */
+.site-ico { width:20px; height:20px; border-radius:4px; vertical-align:middle; display:inline-block; }
+nav button.mono.has-ico .mono-badge { border:0; padding:0; min-width:0; height:auto; }
+/* v0.5.25: az „Új hozzászólások” lap láncai – egy téma egymást követő új hozzászólásai egy dobozban, időrendben */
+.result.chain { border-left:3px solid var(--accent, #8ab4f8); padding-left:10px; }
+.chain-list { margin:6px 0 4px; padding-left:22px; }
+.chain-list li { margin:5px 0; }
+.chain-list li > div { margin-top:1px; }
+/* v0.5.25: oldal-ikon a felirat mellett (listákban) – a böngésző ikontárából; a lapfülön a felirat helyett (common/ui.js: siteIcons) */
+.site-ico.sm { width:16px; height:16px; display:inline-block; vertical-align:-3px; margin-right:6px; border-radius:3px; }
+/* lapfülön (a felirat helyén) az ikon mellett a számláló is elfér */
+[data-site-tab].has-ico { display:inline-flex; align-items:center; gap:4px; }
+
