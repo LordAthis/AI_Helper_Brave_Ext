@@ -1,4 +1,4 @@
-# AI Helper – MI-beszélgetések (v0.1.1)
+# AI Helper – MI-beszélgetések (v0.1.2)
 
 Böngésző-kiegészítő (Brave / Chrome, Manifest V3): az MI-csevegésekben folytatott beszélgetések mentése **a saját gépen** –
 keresés, export, változatok. Önálló alkalmazásnak készült; emellett egy másik projekt moduljaként is működik.
@@ -14,6 +14,9 @@ keresés, export, változatok. Önálló alkalmazásnak készült; emellett egy 
   + `tartalom.md` jegyzék. Minden kimenet sötét (a PDF és a Word is).
 - **Változatok**: ha egy korábbi rész megváltozik (szerkesztett kérdés, újragenerált válasz), új változat keletkezik, a régi
   megmarad; két változat soronként összevethető.
+- **Tördelés-javítás**: ha a modell egy kódot tartalmazó Markdown-fájlt ad (```markdown, benne ```powershell), és a megjelenítő
+  ettől szétszedi (a fájl egy része szövegként, a szöveges válasz kódblokkban – főleg a Gemininél), a modul felismeri, a fájlt
+  egyben mutatja (Kód másolása, Letöltés .md, Előnézet), és az export is a javítottat viszi. Az eredeti megmarad, visszaváltható.
 - Hosszú beszélgetésnél, ahol az oldal csak a végét tartja meg, a mentések összefésülődnek – a korábbi részek nem vesznek el.
 
 ## Adatok
@@ -31,5 +34,6 @@ keresés, export, változatok. Önálló alkalmazásnak készült; emellett egy 
 
 | Verzió | Tartalom |
 |---|---|
+| 0.1.2 | Tördelés-javítás (szétesett Markdown-fájl, kódblokkba került szöveg, kiszakadt kódsorok); Kód másolása / Letöltés .md / Előnézet a kódblokkokon; bezárható dobozok |
 | 0.1.1 | Gemini-alkalmazás (gemini.google.com), Claude és Perplexity; pontosabb kódnyelv-felismerés |
 | 0.1.0 | ChatGPT, Grok, Google AI-mód; keresés, export, változatok |

@@ -1,4 +1,4 @@
-/* Segítő – közös stíluslap a saját oldalakhoz (v0.5.26) – sötét téma, fehér „papír” nélkül */
+/* Segítő – közös stíluslap a saját oldalakhoz (v0.5.28) – sötét téma, fehér „papír” nélkül */
 :root { color-scheme: dark; --bg:#1c1d20; --card:#26282c; --line:#44474d; --text:#e8eaed; --muted:#9aa0a6; --accent:#8ab4f8; --ok:#34a853; --warn:#f5b400; --bad:#ea4335; }
 * { box-sizing: border-box; }
 body { margin:0; font:14px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--text); }
@@ -193,3 +193,12 @@ nav button.mono.has-ico .mono-badge { border:0; padding:0; min-width:0; height:a
 /* lapfülön (a felirat helyén) az ikon mellett a számláló is elfér */
 [data-site-tab].has-ico { display:inline-flex; align-items:center; gap:4px; }
 
+/* v0.5.28: ikon + rövid név együtt (katalógus: iconWithLabel – HWApró) a lapfülön is */
+[data-site-tab].has-ico.ico-label { gap:6px; }
+/* v0.5.28: bezárható dobozok (common/ui.js: foldable) – a cím elején nyitó / záró gomb; becsukva csak a cím látszik */
+.fold-btn { all:unset; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin:0 6px 0 -4px; border-radius:5px; cursor:pointer; color:var(--muted); vertical-align:-3px; flex:none; }
+.fold-btn::before { content:''; width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:7px solid currentColor; transition:transform .15s; }
+.fold-btn:hover, .fold-btn:focus-visible { color:var(--text); background:rgba(255,255,255,.08); outline:none; }
+.card.folded .fold-btn::before { transform:rotate(-90deg); }
+.card.folded > :not(h2):not(h3) { display:none !important; }
+.card.folded > h2, .card.folded > h3 { margin-bottom:0; }

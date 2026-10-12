@@ -1,4 +1,4 @@
-// Segítő – közös felületi elemek a saját oldalakhoz (v0.5.26)
+// Segítő – közös felületi elemek a saját oldalakhoz (v0.5.28)
 // – egységes ikonok: törlés = kuka, mentés = floppy, szerkesztés = ceruza, frissítés = körbeforduló nyíl;
 //   a gombra elég a data-ico="trash|save|edit|refresh" jelölés (data-ico-only: csak ikon, a felirat buborékba kerül),
 // – visszajelzés: SegitoUI.busy(gomb, 'Folyamatban…') azonnal forgó jelet tesz a gombra, a visszaadott függvény állítja vissza;
@@ -35,6 +35,7 @@
       } else b.insertAdjacentHTML('afterbegin', ICON[b.dataset.ico] + ' ');
     }
     siteIcons(root);                                  // v0.5.25: oldal-ikonok (data-site)
+    foldable(root);                                   // v0.5.28: bezárható dobozok
   }
   // csak ikonos gomb HTML-je (táblázatsorokba)
   const iconBtn = (ico, title, attrs = '', cls = '') => `<button class="icon-btn ${cls}" title="${esc(title)}" aria-label="${esc(title)}" ${attrs}>${ICON[ico]}</button>`;
@@ -158,7 +159,7 @@
   const SITE_ICO = new Map();
   function siteIconUrl(id) {
     const C = g.SegitoCatalog, x = C && C.site && C.site(id);
-    if (!x || !x.home || x.noIcon) return Promise.resolve(null);   // v0.5.26: noIcon – lásd siteIcons
+    if (!x || !x.home) return Promise.resolve(null);
     if (!SITE_ICO.has(id)) SITE_ICO.set(id, favicon(x.home, 32));
     return SITE_ICO.get(id);
   }
@@ -168,16 +169,15 @@
     for (const el of els) {
       el.dataset.siteDone = '1';
       const id = el.dataset.site, tab = el.hasAttribute('data-site-tab');
-      // v0.5.26: ikon nélküli oldal (katalógus: noIcon – a Hardverapró ikonja nem egyértelmű, LordAthis kérése): se a lapfülön,
-      // se a listában nincs ikon, a név helyén mindenhol a rövid név („HWApró”), rámutatva a teljes név
-      const cx = g.SegitoCatalog.site(id);
-      if (cx && cx.noIcon) {
+      // v0.5.26 → v0.5.28: a rövid nevű oldal (katalógus: iconWithLabel – most: Hardverapró, LordAthis kérése) a név helyén
+      // mindenhol a rövid nevet („HWApró”) mutatja, rámutatva a teljes név; v0.5.28-tól az ikon is MELLETTE áll (lapfülön is).
+      const cx = g.SegitoCatalog.site(id), withLabel = !!(cx && cx.iconWithLabel);
+      if (withLabel) {
         const sh = cx.short || cx.name;
         if (!el.title) el.title = cx.name;
         const lab = tab && el.querySelector('.site-label');
         if (lab) lab.textContent = sh;
         else { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n = w.nextNode(); n; n = w.nextNode()) if (n.nodeValue.includes(cx.name)) n.nodeValue = n.nodeValue.replace(cx.name, sh); }
-        continue;
       }
       siteIconUrl(id).then((src) => {
         if (!src || !el.isConnected) return;
@@ -186,7 +186,8 @@
         img.className = tab ? 'site-ico' : 'site-ico sm'; img.alt = ''; img.width = tab ? 20 : 16; img.height = tab ? 20 : 16;
         img.onload = () => {
           if (!el.isConnected) return;
-          if (tab) {
+          if (tab && withLabel) { el.prepend(img); el.classList.add('has-ico', 'ico-label'); }   // v0.5.28: ikon + felirat
+          else if (tab) {
             const lab = el.querySelector('.site-label');
             if (!el.title) el.title = name;
             if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', (lab ? lab.textContent.trim() : '') || name);
@@ -266,6 +267,7 @@
   function cols(box, key) {
     const table = box && box.querySelector(':scope > table'); if (!table || !table.tHead) return;
     box.classList.add('tbl-wrap');
+    siteIcons(box);                                   // v0.5.28: a táblázat oldal-nevei mellé is ikon (data-site)
     const ths = headCells(table), sk = 'segito_cols:' + key;
     const saved = lsGet(sk);
     if (Array.isArray(saved) && saved.length === ths.length) setWidths(table, saved);
@@ -361,5 +363,58 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => decorate());
     else decorate();
   }
-  g.SegitoUI = { ICON, decorate, iconBtn, busy, working, actNote, favicon, faviconProbe, siteIcons, toast, ago, cols, colsReset, esc, dayLog, dayKey, openPage, _fitWidth: fitWidth };
+  // v0.5.28 – BEZÁRHATÓ DOBOZOK (LordAthis kérése, 029.png): minden címmel (h2 / h3) kezdődő doboz (.card), ami nem 1–2 soros,
+  // a címe elején nyitó / záró gombot kap. A becsukott dobozból csak a cím látszik. Az állapotot a böngésző megjegyzi
+  // (oldalanként, a doboz címe vagy a data-fold="<kulcs>" alapján – localStorage, csak ezen a gépen).
+  //   data-fold="<kulcs>" → mindig bezárható (a magasságtól függetlenül); data-nofold → soha; .sample-card → soha.
+  // A rejtett lapfülön lévő dobozt (nincs mérete) a ResizeObserver akkor nézi meg, amikor láthatóvá válik.
+  const FOLD_MIN = 110;                               // ennél kisebb tartalom (kb. 2 sor) nem kap gombot
+  const foldKey = (card, h) => 'segito_fold:' + location.pathname + ':' + (card.dataset.fold || [...h.childNodes].filter(n => n.nodeType === 3 || (n.nodeType === 1 && !n.matches('button, label, input, .muted, .tag, .fold-btn'))).map(n => n.textContent).join('').trim());
+  let foldRO = null;
+  function foldOne(card) {
+    if (card.dataset.foldDone) return true;
+    const h = card.querySelector(':scope > h2:first-child, :scope > h3:first-child'); if (!h) { card.dataset.foldDone = 'x'; return true; }
+    if (!card.hasAttribute('data-fold')) {
+      if (!card.offsetHeight) return false;           // még rejtett – később
+      if (card.scrollHeight - h.offsetHeight < FOLD_MIN) { card.dataset.foldDone = 'x'; return true; }
+    }
+    card.dataset.foldDone = '1';
+    const key = foldKey(card, h);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'fold-btn';
+    const set = (fold, save) => {
+      card.classList.toggle('folded', fold);
+      btn.setAttribute('aria-expanded', String(!fold));
+      btn.title = fold ? 'Kinyitás' : 'Becsukás';
+      btn.setAttribute('aria-label', btn.title);
+      if (save) lsSet(key, fold ? 1 : null);
+    };
+    btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); set(!card.classList.contains('folded'), true); });
+    card._fold = (fold) => set(fold, true);
+    h.prepend(btn);
+    card.classList.add('foldable');
+    set(!!lsGet(key), false);
+    return true;
+  }
+  function foldable(root) {
+    if (typeof document === 'undefined') return;
+    const scope = root || document;
+    const cards = [...(scope.matches && scope.matches('.card') ? [scope] : []), ...scope.querySelectorAll('.card')];
+    for (const card of cards) {
+      if (card.dataset.foldDone || card.classList.contains('sample-card') || card.hasAttribute('data-nofold')) continue;
+      if (!foldOne(card) && typeof ResizeObserver !== 'undefined') {
+        foldRO = foldRO || new ResizeObserver((ents) => { for (const en of ents) if (en.target.offsetHeight && foldOne(en.target)) foldRO.unobserve(en.target); });
+        foldRO.observe(card);
+      }
+    }
+  }
+  // „Mind kinyit / Mind becsuk”: a dobozok és a fák legfelső ágai (details) egyszerre
+  function foldAll(root, fold) {
+    const scope = root || document;
+    foldable(scope);
+    for (const card of scope.querySelectorAll('.card.foldable')) if (card._fold) card._fold(fold);
+    for (const d of scope.querySelectorAll('.card > ul.tree > li > details, .card > details')) d.open = !fold;
+  }
+
+  g.SegitoUI = { ICON, decorate, iconBtn, busy, working, actNote, favicon, faviconProbe, siteIcons, foldable, foldAll, toast, ago, cols, colsReset, esc, dayLog, dayKey, openPage, _fitWidth: fitWidth };
 })(typeof self !== 'undefined' ? self : window);

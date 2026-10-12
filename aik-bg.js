@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: háttér (mentés, változatok) (v0.5.26 · modul v0.1.0)
+// Segítő – MI-beszélgetések modul: háttér (mentés, változatok) (v0.5.28 · modul v0.1.2)
 // A Segítő háttere (background/service-worker.js) és az önálló modul háttere (aik-sw.js) is ezt tölti be. Csak a saját,
 // „aik-” kezdetű üzeneteire válaszol – a Segítő többi üzenetéhez nem nyúl.
 (function (g) {
@@ -63,9 +63,11 @@
     // különben (szerkesztett / újragenerált válasz, vagy régi változat) új változat keletkezik
     if (prev && !(type === 'bővült' && last && t - last.at < set.versionHours * 3600e3)) n++;
     const firstAt = (m.turns.find(x => x.at) || {}).at || (prev && prev.firstAt) || new Date(t).toISOString();
+    // v0.1.2: elrontott-e a modell a tördelést (```markdown-ba zárt szöveges válasz)? – a listában jelző, a nézetben javítható
+    const gb = (g.AIK_FIX && g.AIK_FIX.scan({ turns: m.turns })) || { garbled: false, turns: [] };
     const conv = {
       key, site: c.site, cid: c.cid, title: c.title || (prev && prev.title) || (m.turns[0].text.slice(0, 80)), url: c.url || (prev && prev.url) || '',
-      turns: m.turns, hash: h, words: A.words(text), langs: A.langsOf(text), turnCount: m.turns.length,
+      turns: m.turns, hash: h, words: A.words(text), langs: A.langsOf(text), turnCount: m.turns.length, garbled: gb.garbled, garbledTurns: gb.turns.length,
       firstSaved: prev ? prev.firstSaved : t, lastSaved: t, lastSeen: t, firstAt, version: n, versions: Math.max(n, (prev && prev.versions) || 0)
     };
     await D.tx(['convs', 'versions'], 'readwrite', (tx) => {

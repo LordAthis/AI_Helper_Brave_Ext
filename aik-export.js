@@ -1,5 +1,5 @@
 // Segítő – MI-beszélgetések modul: megjelenítés, export (MD / JSON / HTML / TXT / DOCX), ZIP, változat-összevetés
-// (v0.5.26 · modul v0.1.0). Külső könyvtár nélkül (a projektben nincs build-eszköz): a DOCX és a ZIP saját, egyszerű összeállítás.
+// (v0.5.28 · modul v0.1.2). Külső könyvtár nélkül (a projektben nincs build-eszköz): a DOCX és a ZIP saját, egyszerű összeállítás.
 // SÖTÉT TÉMA mindenhol (LordAthis: nincs fehér „papír”) – a HTML-, a nyomtatási (PDF) és a DOCX-kimenet is sötét.
 (function (g) {
   if (g.AIK_EX) return;
@@ -16,20 +16,35 @@
     x = x.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (m, t, u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${t}</a>`);
     return x.replace(/\n/g, '<br>');
   }
-  function render(md) {
+  // kerítés-felismerés: a javító modul (aik-repair.js) függvényei, ha be van töltve – különben a szokásos ``` / ~~~
+  const FX = g.AIK_FIX || {
+    openFence: (l) => { const m = l.match(/^([ \t]*)(`{3,}|~{3,})[ \t]*([^\s`]*)[^`]*$/); return m ? { mark: m[2], lang: m[3] || '', indent: m[1].length } : null; },
+    closesFence: (l, o) => { const m = l.match(/^([ \t]*)(`{3,}|~{3,})[ \t]*$/); return !!(m && m[2][0] === o.mark[0] && m[2].length >= o.mark.length && m[1].length <= Math.max(o.indent, 3)); }
+  };
+  function render(md, opt = {}) {
     const out = [], lines = String(md || '').split('\n');
     let i = 0;
     while (i < lines.length) {
       const l = lines[i];
-      const fence = l.match(/^```\s*([\w#+.\-]*)\s*$/);
-      if (fence) { const buf = []; i++; while (i < lines.length && !/^```\s*$/.test(lines[i])) buf.push(lines[i++]); i++; out.push(`<pre class="code"${fence[1] ? ` data-lang="${esc(fence[1])}"` : ''}>${fence[1] ? `<span class="lang">${esc(fence[1])}</span>` : ''}<code>${esc(buf.join('\n'))}</code></pre>`); continue; }
+      // v0.1.2: a kerítés hossza számít (```` – a javított, beágyazott kódot tartalmazó Markdown-fájl); a záró sor a nyitóhoz illik
+      const fence = FX.openFence(l);
+      // a kódblokk sarkában (ha kérik) „Kód másolása” gomb; Markdown-fájlnál „Letöltés .md” és „Előnézet” is
+      if (fence) {
+        const buf = []; i++;
+        while (i < lines.length && !FX.closesFence(lines[i], fence)) buf.push(lines[i++]);
+        i++;
+        const code = buf.join('\n'), lang = fence.lang, isMd = /^(markdown|md)$/i.test(lang);
+        const btns = opt.copy ? `<span class="code-btns">${isMd ? '<button class="copy-code" data-prev type="button" title="A Markdown-fájl formázott előnézete">Előnézet</button><button class="copy-code" data-dl type="button" title="A fájl letöltése .md-ként">Letöltés .md</button>' : ''}<button class="copy-code" data-copy type="button" title="A teljes kód a vágólapra">Kód másolása</button></span>` : '';
+        out.push(`<pre class="code"${lang ? ` data-lang="${esc(lang)}"` : ''}>${lang ? `<span class="lang">${esc(lang)}</span>` : ''}${btns}<code>${esc(code)}</code></pre>`);
+        continue;
+      }
       const h = l.match(/^(#{1,6})\s+(.*)$/);
       if (h) { out.push(`<h${Math.min(6, h[1].length + 1)}>${inl(h[2])}</h${Math.min(6, h[1].length + 1)}>`); i++; continue; }
       if (/^\s*[-*] /.test(l) || /^\s*\d+\. /.test(l)) { const ol = /^\s*\d+\. /.test(l), it = []; while (i < lines.length && (/^\s*[-*] /.test(lines[i]) || /^\s*\d+\. /.test(lines[i]) || (/^ {2,}\S/.test(lines[i]) && it.length))) { if (/^ {2,}\S/.test(lines[i]) && !/^\s*([-*]|\d+\.) /.test(lines[i])) it[it.length - 1] += '\n' + lines[i].trim(); else it.push(lines[i].replace(/^\s*([-*]|\d+\.)\s+/, '')); i++; } out.push(`<${ol ? 'ol' : 'ul'}>${it.map(x => `<li>${inl(x)}</li>`).join('')}</${ol ? 'ol' : 'ul'}>`); continue; }
       if (/^> /.test(l)) { const q = []; while (i < lines.length && /^> /.test(lines[i])) q.push(lines[i++].slice(2)); out.push(`<blockquote>${inl(q.join('\n'))}</blockquote>`); continue; }
       if (/^\|.*\|\s*$/.test(l) && /^\|\s*---/.test(lines[i + 1] || '')) { const rows = []; while (i < lines.length && /^\|.*\|\s*$/.test(lines[i])) { if (!/^\|\s*---/.test(lines[i])) rows.push(lines[i].replace(/^\||\|\s*$/g, '').split('|').map(c => c.trim())); i++; } out.push(`<table>${rows.map((r, ri) => `<tr>${r.map(c => ri ? `<td>${inl(c)}</td>` : `<th>${inl(c)}</th>`).join('')}</tr>`).join('')}</table>`); continue; }
       if (!l.trim()) { i++; continue; }
-      const p = []; while (i < lines.length && lines[i].trim() && !/^(```|#{1,6}\s|> |\s*[-*] |\s*\d+\. )/.test(lines[i])) p.push(lines[i++]);
+      const p = []; while (i < lines.length && lines[i].trim() && !FX.openFence(lines[i]) && !/^(#{1,6}\s|> |\s*[-*] |\s*\d+\. )/.test(lines[i])) p.push(lines[i++]);
       if (p.length) out.push(`<p>${inl(p.join('\n'))}</p>`); else i++;
     }
     return out.join('\n');
@@ -88,9 +103,9 @@
     for (const x of head(c)) para(run(x, { color: '9AA0A6' }), { after: 40 });
     for (const t of turns) {
       para(run(roleName(t.role, c.site) + (t.at ? ' · ' + String(t.at).replace('T', ' ').slice(0, 16) : ''), { b: true, color: t.role === 'user' ? '8AB4F8' : '34A853' }), { style: 'Heading2' });
-      let code = false;
+      let code = null;   // v0.1.2: a nyitó kerítés (a záró ehhez illik – a ```` fájlban lévő ``` sor kód marad)
       for (const line of String(t.text).split('\n')) {
-        if (/^```/.test(line)) { code = !code; continue; }
+        if (code ? FX.closesFence(line, code) : FX.openFence(line)) { code = code ? null : FX.openFence(line); continue; }
         if (code) para(run(line || ' ', { mono: true }), { shade: '111215', after: 0 });
         else if (line.trim()) { const h = line.match(/^#{1,6}\s+(.*)$/); para(run((h ? h[1] : line).replace(/\*\*/g, ''), { b: !!h })); }
       }

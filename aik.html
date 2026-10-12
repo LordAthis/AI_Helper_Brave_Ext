@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Segítő – MI-beszélgetések modul: panel (v0.5.26 · modul v0.1.0) – a Segítőben a gyorspanelről nyílik, önálló bővítményként
+<!-- Segítő – MI-beszélgetések modul: panel (v0.5.28 · modul v0.1.2) – a Segítőben a gyorspanelről nyílik, önálló bővítményként
      az ikonjára kattintva. A beállításai kivételesen itt, a saját „Beállítások” lapján vannak (LordAthis kérése). -->
 <html lang="hu">
 <head>
@@ -20,7 +20,15 @@
     .turn .who { font-weight:700; color:var(--muted); font-size:13px; margin-bottom:4px; }
     .turn p { margin:6px 0; }
     pre.code { position:relative; background:#111215; border:1px solid var(--line); border-radius:6px; padding:10px; overflow:auto; white-space:pre-wrap; }
-    pre.code .lang { position:absolute; top:2px; right:8px; font-size:11px; color:var(--muted); }
+    pre.code .lang { position:absolute; top:4px; right:8px; font-size:11px; color:var(--muted); }
+    /* v0.1.2: gombok a kódblokk sarkában (Kód másolása; Markdown-fájlnál Előnézet, Letöltés .md) – rámutatva látszanak */
+    pre.code .code-btns { position:absolute; top:4px; right:6px; display:flex; gap:4px; opacity:0; transition:opacity .12s; }
+    pre.code:hover .code-btns, pre.code .code-btns:focus-within { opacity:1; }
+    pre.code .copy-code { font-size:11px; padding:2px 7px; border:1px solid var(--line); border-radius:4px; background:var(--card); color:var(--muted); cursor:pointer; }
+    pre.code .copy-code:hover { color:var(--text); border-color:var(--accent); }
+    pre.code .copy-code.ok { color:var(--ok); border-color:var(--ok); }
+    pre.code:hover .lang { visibility:hidden; }
+    .md-prev { border:1px dashed var(--line); border-radius:6px; padding:4px 14px; margin:-4px 0 10px; }
     .diff { background:#111215; border:1px solid var(--line); border-radius:6px; padding:8px; max-height:520px; overflow:auto; white-space:pre-wrap; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; }
     .diff .a { color:#81c995; background:rgba(52,168,83,.10); } .diff .r { color:#f28b82; background:rgba(234,67,53,.10); } .diff .s { color:var(--muted); }
     .site-ico.sm { width:16px; height:16px; vertical-align:-3px; margin-right:6px; border-radius:3px; }
@@ -80,6 +88,7 @@
           <label class="c"><input type="checkbox" class="ex-f" value="docx"> DOCX (Word)</label>
           <span class="muted">PDF: egy beszélgetés megnyitásakor, a „PDF” gombbal (a böngésző nyomtatásával – „Mentés PDF-ként”).</span>
         </div>
+        <div class="toolbar"><label class="c"><input type="checkbox" id="ex-fix" checked> Tördelés javítása (ahol a modell szöveget tett kódblokkba / szétszakította a kódot)</label></div>
         <div class="toolbar"><button id="ex-run" class="primary" data-ico="save">ZIP letöltése</button><span class="muted" id="ex-info"></span></div>
       </div>
     </section>
@@ -101,6 +110,7 @@
   </main>
   <script src="kozos/ui.js"></script>
   <script src="aik-common.js"></script>
+  <script src="aik-repair.js"></script>
   <script src="aik-db.js"></script>
   <script src="aik-export.js"></script>
   <script src="aik.js"></script>

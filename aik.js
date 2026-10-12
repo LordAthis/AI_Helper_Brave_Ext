@@ -1,7 +1,11 @@
-// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.27 · modul v0.1.1)
+// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.28 · modul v0.1.2)
+// v0.1.2: a tördelés-javítás (aik-repair.js) – ahol a modell egy kódot tartalmazó Markdown-fájlt adott (```markdown, benne
+// ```powershell), és a Gemini ettől szétszedte (a fájl egy része szövegként, a szöveges válasz kódblokkban), a nézet felismeri
+// („javítva” jelzés), a fájlt egyben mutatja (másolás, letöltés .md-ként, előnézet), az eredetire visszaváltható, és az export
+// is a javítottat viszi.
 // Lapok: Beszélgetések (keresés: szöveg, oldal, dátum, kódnyelv), Megnyitva (fordulók, változatok és összevetésük, export
 // egyenként: MD / JSON / HTML / TXT / DOCX / PDF), Export (ZIP: segito-aik/<oldal>/…), Beállítások (a modul saját lapja).
-/* global AIK, AIKDB, AIK_EX, SegitoUI */
+/* global AIK, AIKDB, AIK_EX, AIK_FIX, SegitoUI */
 (async () => {
   const $ = (id) => document.getElementById(id);
   const esc = AIK_EX.esc, SKEY = 'aik_settings';
@@ -72,7 +76,7 @@
     $('ex-n').textContent = shown.length;
     if (!all.length) { $('list').innerHTML = `<div class="empty">Még nincs mentett beszélgetés. Nyiss meg egy beszélgetést a ChatGPT-n, a Groknál vagy a Google AI-módjában – a modul magától menti (a Beállítások lapon oldalanként kikapcsolható), vagy fent: „Nyitottak mentése”.</div>`; return; }
     if (!shown.length) { $('list').innerHTML = '<div class="empty">A keresésnek / szűrőknek egy beszélgetés sem felel meg.</div>'; return; }
-    $('list').innerHTML = `<table><thead><tr><th>Oldal</th><th>Cím</th><th>Dátum</th><th>Utolsó mentés</th><th>Fordulók</th><th>Kód</th><th>Változat</th><th></th></tr></thead><tbody>${shown.slice(0, 500).map(c => `<tr class="row" data-key="${esc(c.key)}"><td>${siteLabel(c.site)}</td><td><b>${esc(c.title)}</b>${snippet(c, terms)}</td><td>${esc(dayOf(c))}</td><td>${fmt(c.lastSaved)}</td><td>${c.turnCount}</td><td>${esc((c.langs || []).join(', '))}</td><td>${c.version}</td><td style="white-space:nowrap">${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener" title="Megnyitás az oldalon" data-stop>↗</a> ` : ''}${SegitoUI.iconBtn('trash', 'Törlés (minden változatával)', 'data-del="' + esc(c.key) + '"')}</td></tr>`).join('')}</tbody></table>${shown.length > 500 ? `<p class="muted">Az első 500 látszik – szűkíts a keresővel.</p>` : ''}`;
+    $('list').innerHTML = `<table><thead><tr><th>Oldal</th><th>Cím</th><th>Dátum</th><th>Utolsó mentés</th><th>Fordulók</th><th>Kód</th><th>Változat</th><th></th></tr></thead><tbody>${shown.slice(0, 500).map(c => `<tr class="row" data-key="${esc(c.key)}"><td>${siteLabel(c.site)}</td><td><b>${esc(c.title)}</b>${c.garbled ? ` <span class="tag warn" title="A modell a válasz tördelését elrontotta (szétesett Markdown-fájl, szöveg kódblokkban, szétszakított kód). Megnyitva a „javítva” nézet egyben mutatja és másolhatóvá teszi.">tördelés javítva</span>` : ''}${snippet(c, terms)}</td><td>${esc(dayOf(c))}</td><td>${fmt(c.lastSaved)}</td><td>${c.turnCount}</td><td>${esc((c.langs || []).join(', '))}</td><td>${c.version}</td><td style="white-space:nowrap">${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener" title="Megnyitás az oldalon" data-stop>↗</a> ` : ''}${SegitoUI.iconBtn('trash', 'Törlés (minden változatával)', 'data-del="' + esc(c.key) + '"')}</td></tr>`).join('')}</tbody></table>${shown.length > 500 ? `<p class="muted">Az első 500 látszik – szűkíts a keresővel.</p>` : ''}`;
     SegitoUI.cols($('list'), 'aik-list');
     icons($('list'));
   }
@@ -92,28 +96,77 @@
   });
 
   // ---------- egy beszélgetés ----------
-  let cur = null, curVer = null;
+  let cur = null, curVer = null, curFix = null, viewFixed = true;
+  function curTurns() {   // a megjelenített / exportált fordulók (javított, ha van és azt kérik)
+    const base = (curVer && curVer.turns) || cur.turns;
+    if (viewFixed && curFix && curFix.garbled) return curFix.turns.map(t => ({ ...t, text: AIK_FIX.turnText(t, true) }));
+    return base;
+  }
+  function renderTurns() {
+    const turns = curTurns();
+    $('turns').innerHTML = turns.map(t => `<div class="turn ${t.role}"><div class="who">${esc(AIK_EX.roleName(t.role, cur.site))}${t.at ? ' · ' + esc(String(t.at).replace('T', ' ').slice(0, 16)) : ''}${viewFixed && t.fixed ? ' <span class="tag warn" title="Ennek a válasznak a tördelését a modell elrontotta – itt a javított változat látszik (a kód egyben, a szöveg nem kódblokkban).">javítva</span>' : ''}</div>${AIK_EX.render(t.text, { copy: true })}</div>`).join('');
+    SegitoUI.decorate($('turns'));
+    icons($('turns'));
+  }
   async function openConv(key, vn) {
     const c = await AIKDB.get('convs', key);
     if (!c) { SegitoUI.toast('Ez a beszélgetés már nincs meg.', 'warn'); return; }
     const vs = (await AIKDB.all('versions', 'conv', IDBKeyRange.only(key))).sort((a, b) => b.n - a.n);
     cur = c; curVer = vs.find(v => v.n === (vn || c.version)) || vs[0] || { n: c.version, turns: c.turns, at: c.lastSaved };
-    const turns = curVer.turns || c.turns;
+    curFix = AIK_FIX.repairConv({ site: c.site, turns: curVer.turns || c.turns });
+    viewFixed = curFix.garbled;   // ha van mit javítani, alapból a javított nézet
     $('nav-view').hidden = false;
     $('view').innerHTML = `<div class="card">
       <h2>${siteLabel(c.site)} · ${esc(c.title)}</h2>
       <dl class="kv"><dt>Oldal</dt><dd>${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.url)}</a>` : '–'}</dd><dt>Első forduló</dt><dd>${esc(c.firstAt || '–')}</dd><dt>Mentve</dt><dd>először ${fmt(c.firstSaved)}, utoljára ${fmt(c.lastSaved)}</dd><dt>Méret</dt><dd>${c.turnCount} forduló · ${c.words.toLocaleString('hu-HU')} szó${(c.langs || []).length ? ' · kód: ' + esc(c.langs.join(', ')) : ''}</dd><dt>Látható változat</dt><dd>${curVer.n}. (${fmt(curVer.at)}${curVer.n !== c.version ? ' – <b class="warn">korábbi változat</b>' : ''})</dd></dl>
+      ${curFix.garbled ? `<div class="card sample-card" style="margin:0 0 10px"><b>Tördelés javítva.</b> Ebben a beszélgetésben a modell ${curFix.garbledCount} választ hibásan tördelt (a kódot tartalmazó Markdown-fájl szétesett: egy része szövegként, a szöveges válasz kódblokkban jelent meg). Itt a <b>javított</b> nézet látszik: a fájl egyben (másolható, letölthető .md-ként), a szöveg nem kódblokkban. Az export is ezt viszi. <button id="fix-toggle" class="small" type="button">Eredeti mutatása</button></div>` : ''}
       <div class="toolbar">${['md', 'json', 'html', 'txt', 'docx'].map(f => `<button data-ex="${f}" data-ico="save">${f.toUpperCase()}</button>`).join('')}<button data-ex="pdf" title="A böngésző nyomtatási ablaka nyílik – ott „Mentés PDF-ként”">PDF</button><span class="push"></span>${SegitoUI.iconBtn('trash', 'Törlés (minden változatával)', 'id="v-del"')}</div>
     </div>
     ${vs.length > 1 ? `<div class="card"><h3 style="margin-top:0">Változatok</h3><table><thead><tr><th>#</th><th>Mikor</th><th>Mi történt</th><th>Fordulók</th><th>Összevetés</th><th></th></tr></thead><tbody>${vs.map(v => `<tr><td>${v.n}.</td><td>${fmt(v.at)}${v.updatedAt && v.updatedAt !== v.at ? ` <span class="muted">(frissítve ${fmt(v.updatedAt)})</span>` : ''}</td><td>${esc(v.type)}</td><td>${v.turnCount}</td><td><label class="c"><input type="radio" name="va" value="${v.n}"${v.n === (vs[1] || {}).n ? ' checked' : ''}> A</label> <label class="c"><input type="radio" name="vb" value="${v.n}"${v.n === vs[0].n ? ' checked' : ''}> B</label></td><td><button class="small" data-ver="${v.n}">Megnézem</button></td></tr>`).join('')}</tbody></table>
       <div class="toolbar" style="margin-top:8px"><button id="v-diff">Összevetés (A → B)</button><span class="muted" id="v-diff-info"></span></div><div id="v-diff-out"></div></div>` : ''}
-    <div id="turns">${turns.map(t => `<div class="turn ${t.role}"><div class="who">${esc(AIK_EX.roleName(t.role, c.site))}${t.at ? ' · ' + esc(String(t.at).replace('T', ' ').slice(0, 16)) : ''}</div>${AIK_EX.render(t.text)}</div>`).join('')}</div>`;
+    <div id="turns"></div>`;
+    renderTurns();
     SegitoUI.decorate($('view'));
     icons($('view'));
     show('view');
     window.scrollTo(0, 0);
   }
   $('view').addEventListener('click', async (e) => {
+    const cp = e.target.closest('[data-copy]');
+    if (cp) {
+      const code = cp.parentElement.querySelector('code');
+      const text = code ? code.textContent : '';
+      try { await navigator.clipboard.writeText(text); } catch (_) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (__) { /* */ } ta.remove(); }
+      const o = cp.textContent; cp.textContent = 'Másolva ✓'; cp.classList.add('ok'); setTimeout(() => { cp.textContent = o; cp.classList.remove('ok'); }, 1500);
+      return;
+    }
+    // v0.1.2: Markdown-fájl letöltése (a kódblokk tartalma, betűre) és előnézete
+    const dl = e.target.closest('[data-dl]');
+    if (dl && cur) {
+      const pre = dl.closest('pre'), code = pre.querySelector('code').textContent;
+      const all = [...$('turns').querySelectorAll('pre.code[data-lang="markdown"], pre.code[data-lang="md"]')], k = all.indexOf(pre) + 1;
+      const h = (code.match(/^#{1,3}\s+(.+)$/m) || [])[1];
+      const name = AIK.fileSafe(h || `${cur.title} ${k}`, 70) + '.md';
+      await download(code.endsWith('\n') ? code : code + '\n', `segito-aik/${AIK_EX.folderOf(cur)}/${name}`, MIME.md);
+      SegitoUI.toast(`Letöltve: ${name}`);
+      return;
+    }
+    const pv = e.target.closest('[data-prev]');
+    if (pv) {
+      const pre = pv.closest('pre');
+      let box = pre.nextElementSibling;
+      if (box && box.classList.contains('md-prev')) { box.remove(); pv.textContent = 'Előnézet'; return; }
+      box = document.createElement('div'); box.className = 'md-prev';
+      box.innerHTML = AIK_EX.render(pre.querySelector('code').textContent, { copy: true });
+      pre.after(box); pv.textContent = 'Előnézet bezárása';
+      return;
+    }
+    if (e.target.closest('#fix-toggle')) {
+      viewFixed = !viewFixed;
+      e.target.closest('#fix-toggle').textContent = viewFixed ? 'Eredeti mutatása' : 'Javított mutatása';
+      renderTurns();
+      return;
+    }
     const ex = e.target.closest('[data-ex]');
     if (ex && cur) return exportOne(ex.dataset.ex, ex);
     const ver = e.target.closest('[data-ver]');
@@ -142,8 +195,8 @@
   const MIME = { md: 'text/markdown;charset=utf-8', json: 'application/json', html: 'text/html;charset=utf-8', txt: 'text/plain;charset=utf-8', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
   const build = (f, c, turns) => f === 'md' ? AIK_EX.toMd(c, turns) : f === 'json' ? AIK_EX.toJson(c, turns) : f === 'html' ? AIK_EX.toHtml(c, turns) : f === 'txt' ? AIK_EX.toTxt(c, turns) : AIK_EX.toDocx(c, turns);
   async function exportOne(f, btn) {
-    const turns = (curVer && curVer.turns) || cur.turns;
-    if (f === 'pdf') { await chrome.tabs.create({ url: new URL(`aik-print.html?key=${encodeURIComponent(cur.key)}&v=${curVer.n}`, location.href).href }); return; }
+    const turns = curTurns();
+    if (f === 'pdf') { await chrome.tabs.create({ url: new URL(`aik-print.html?key=${encodeURIComponent(cur.key)}&v=${curVer.n}${viewFixed ? '&fix=1' : ''}`, location.href).href }); return; }
     const done = SegitoUI.busy(btn, 'Mentés…');
     await download(build(f, cur, turns), `segito-aik/${AIK_EX.folderOf(cur)}/${AIK_EX.fileName(cur, f)}`, MIME[f]);
     done();
@@ -154,12 +207,14 @@
     if (!fm.length) { SegitoUI.toast('Jelölj ki legalább egy formátumot.', 'warn'); return; }
     if (!list.length) { SegitoUI.toast('Nincs mit exportálni.', 'warn'); return; }
     const done = SegitoUI.busy(btn, 'Csomagolás…');
-    const files = [], used = new Set(), idx = ['# MI-beszélgetések – tartalom', '', `Készült: ${new Date().toLocaleString('hu-HU')} · ${list.length} beszélgetés · Segítő MI-beszélgetések modul v${AIK.VERSION}`, '', '| Dátum | Oldal | Cím | Fordulók | Kód | Fájl |', '|---|---|---|---|---|---|'];
+    const fix = $('ex-fix').checked;
+    const files = [], used = new Set(), idx = ['# MI-beszélgetések – tartalom', '', `Készült: ${new Date().toLocaleString('hu-HU')} · ${list.length} beszélgetés · Segítő MI-beszélgetések modul v${AIK.VERSION}${fix ? ' · a hibás tördelés kijavítva' : ''}`, '', '| Dátum | Oldal | Cím | Fordulók | Kód | Fájl |', '|---|---|---|---|---|---|'];
     for (const c of list) {
+      const turns = fix ? AIK_FIX.repairConv(c).turns.map(t => ({ ...t, text: AIK_FIX.turnText(t, true) })) : c.turns;   // repairConv a nem hibás fordulókat változatlanul hagyja
       let base = `segito-aik/${AIK_EX.folderOf(c)}/${AIK_EX.fileName(c, '').replace(/\.$/, '')}`;
       for (let i = 2; used.has(base); i++) base = base.replace(/( \(\d+\))?$/, ` (${i})`);
       used.add(base);
-      for (const f of fm) files.push({ name: `${base}.${f}`, data: build(f, c, c.turns) });
+      for (const f of fm) files.push({ name: `${base}.${f}`, data: build(f, c, turns) });
       idx.push(`| ${dayOf(c)} | ${(AIK.site(c.site) || {}).name || c.site} | ${String(c.title).replace(/\|/g, '/')} | ${c.turnCount} | ${(c.langs || []).join(', ')} | ${base.replace(/^segito-aik\//, '')}.${fm[0]} |`);
     }
     files.push({ name: 'segito-aik/tartalom.md', data: idx.join('\n') + '\n' });

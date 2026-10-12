@@ -1,11 +1,11 @@
-// Segítő – MI-beszélgetések modul: közös rész (oldalak, HTML → Markdown, segédek) (v0.5.27 · modul v0.1.1)
+// Segítő – MI-beszélgetések modul: közös rész (oldalak, HTML → Markdown, segédek) (v0.5.28 · modul v0.1.2)
 // A MODUL (CLAUDE.md → „Modulok”): ugyanez a mappa a Segítő része (panel a gyorspanelen), és ÖNÁLLÓ bővítményként is
 // betölthető (saját manifest.json). Az adatai teljesen külön vannak: saját adatbázis („segito-aik”), saját beállítások
 // (chrome.storage.local „aik_settings”), saját export-mappa („segito-aik/<Oldal>/…”). A Segítő többi részéhez nem nyúl.
 // Ez a fájl a tartalomszkriptben, a háttérben és a panelen is fut – csak tiszta segédek vannak benne.
 (function (g) {
   if (g.AIK) return;
-  const VERSION = '0.1.1';
+  const VERSION = '0.1.2';
 
   // Az oldalak. folder: az export almappája; auto: alapból menti-e magától (LordAthis kérése: a Claude NEM – „sokkal
   // ügyesebben dolgozol”); ready: van-e az oldalhoz ellenőrzött feldolgozó (mentett minta alapján) – amelyiknél nincs,
