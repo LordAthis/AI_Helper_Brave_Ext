@@ -1,4 +1,4 @@
-// Segítő – közös felületi elemek a saját oldalakhoz (v0.5.28)
+// Segítő – közös felületi elemek a saját oldalakhoz (v0.5.31)
 // – egységes ikonok: törlés = kuka, mentés = floppy, szerkesztés = ceruza, frissítés = körbeforduló nyíl;
 //   a gombra elég a data-ico="trash|save|edit|refresh" jelölés (data-ico-only: csak ikon, a felirat buborékba kerül),
 // – visszajelzés: SegitoUI.busy(gomb, 'Folyamatban…') azonnal forgó jelet tesz a gombra, a visszaadott függvény állítja vissza;
@@ -137,12 +137,26 @@
     return b.length ? b : null;
   }
   const sameBytes = (a, b) => !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
+  // v0.5.31 (LordAthis: a Vatera és a Jófogás ikonja nem jelent meg, pedig meglátogatta őket): a böngésző az ikont a
+  // MEGLÁTOGATOTT lap címéhez teszi el – ha a kezdőlap átirányít (www nélkül / www-vel, http → https, /magyarorszag), a megadott
+  // címhez nincs ikon. Ezért a megadott címek után a gyökér minden szokásos változatát is megnézzük.
+  function favVariants(urls) {
+    const out = [], add = (u) => { if (u && !out.includes(u)) out.push(u); };
+    const list = [].concat(urls || []);
+    list.forEach(add);
+    for (const u0 of list) {
+      let u; try { u = new URL(u0); } catch (_) { continue; }
+      const bare = u.hostname.replace(/^www\./, '');
+      for (const proto of ['https:', 'http:']) for (const h of [bare, 'www.' + bare]) add(`${proto}//${h}/`);
+    }
+    return out;
+  }
   async function favicon(urls, size = 32) {
     try {
       if (!g.chrome || !chrome.runtime || !chrome.runtime.getURL) return null;
       if (favDefault === null) favDefault = (await favBytes('https://nincs-ilyen-oldal.segito.invalid/', size)) || false;
       if (!favDefault) return null;                            // az ikontár nem érhető el (nincs engedély / a böngésző nem ismeri)
-      for (const u of [].concat(urls || [])) {
+      for (const u of favVariants(urls)) {
         const b = await favBytes(u, size);
         if (b && !sameBytes(b, favDefault)) return favUrl(u, size);
       }
@@ -160,7 +174,11 @@
   function siteIconUrl(id) {
     const C = g.SegitoCatalog, x = C && C.site && C.site(id);
     if (!x || !x.home) return Promise.resolve(null);
-    if (!SITE_ICO.has(id)) SITE_ICO.set(id, favicon(x.home, 32));
+    // v0.5.31: a háttér által megjegyzett, ténylegesen meglátogatott lap címe is (segito_favpage) – ott biztosan van ikon
+    if (!SITE_ICO.has(id)) SITE_ICO.set(id, (async () => {
+      let seen = null; try { seen = ((await chrome.storage.local.get('segito_favpage')).segito_favpage || {})[id] || null; } catch (_) { /* nincs tároló */ }
+      return favicon([].concat(x.home, seen ? [seen] : []), 32);
+    })());
     return SITE_ICO.get(id);
   }
   function siteIcons(root) {

@@ -1,4 +1,4 @@
-/* Segítő – közös stíluslap a saját oldalakhoz (v0.5.28) – sötét téma, fehér „papír” nélkül */
+/* Segítő – közös stíluslap a saját oldalakhoz (v0.5.31) – sötét téma, fehér „papír” nélkül */
 :root { color-scheme: dark; --bg:#1c1d20; --card:#26282c; --line:#44474d; --text:#e8eaed; --muted:#9aa0a6; --accent:#8ab4f8; --ok:#34a853; --warn:#f5b400; --bad:#ea4335; }
 * { box-sizing: border-box; }
 body { margin:0; font:14px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--text); }
@@ -61,6 +61,7 @@ a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:under
 .result { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin-bottom:8px; }
 .result .meta { font-size:12px; color:var(--muted); }
 .result mark { background:rgba(245,180,0,.3); color:inherit; }
+.result .r-act { float:right; display:flex; gap:6px; align-items:center; margin:0 0 4px 10px; }   /* v0.5.31: MTT-kereső – téma / szerző figyelése */
 .split { display:grid; grid-template-columns:260px 1fr; gap:14px; }
 aside { display:flex; flex-direction:column; gap:2px; max-height:75vh; overflow:auto; }
 aside button { text-align:left; border:none; color:var(--text); padding:5px 8px; background:transparent; }

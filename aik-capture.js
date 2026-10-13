@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: tartalomszkript – a megnyitott beszélgetés mentése (v0.5.30 · modul v0.1.3)
+// Segítő – MI-beszélgetések modul: tartalomszkript – a megnyitott beszélgetés mentése (v0.5.31 · modul v0.1.4)
 // v0.1.3: a KORÁBBI beszélgetések bejárása – (1) a megnyitott oldal oldalsávjában lévő beszélgetéseket / listákat jelenti a
 // háttérnek (percenként, csak ha változott); (2) ha ez a lap a bejáró lapja (a háttér nyitotta), végigolvassa: a beszélgetés
 // elejére görget (a korábbi részek betöltése), onnan lefelé a végéig, közben ment; listaoldalon a lista aljáig görget, és jelent.
@@ -71,6 +71,15 @@
       if (!k || seen.has(k.url) || k.url === location.origin + location.pathname.replace(/\/+$/, '')) continue;
       seen.add(k.url); out.push({ ...k, title: clean(a.getAttribute('title') || a.textContent) });
     }
+    // v0.1.4: a Google AI-mód előzménylistája (button[data-thread-id]) – a cím az azonosítóból (mtid) és a címből épül
+    if (W.threads) {
+      let au = null; try { au = new URL(location.href).searchParams.get('authuser'); } catch (_) { /* */ }
+      for (const el of document.querySelectorAll(W.threads)) {
+        const id = el.getAttribute('data-thread-id'); if (!id || seen.has('t:' + id)) continue;
+        const tt = clean((el.querySelector(W.threadTitle) || {}).textContent || String(el.getAttribute('aria-label') || '').replace(/,\s*\d+\/\d+\.?\s*$/, ''));
+        seen.add('t:' + id); out.push({ kind: 'conv', key: SITE + ':' + id, cid: id, url: A.gaiUrl(id, tt, au), title: tt });
+      }
+    }
     if (W.click) for (const el of document.querySelectorAll(W.click)) {
       const tt = clean((el.querySelector(W.clickTitle) || el).textContent);
       if (tt && !seen.has('c:' + tt) && !el.querySelector('a[href]')) { seen.add('c:' + tt); out.push({ kind: 'click', title: tt }); }
@@ -78,12 +87,18 @@
     return out;
   }
   let lastFound = '';
+  // v0.1.4: a kezdőlap a felhasználó saját fiókjával (Google: authuser) – a háttér ezt nyitja meg a következő kezdőlap-bejáráskor
+  function startHint() {
+    if (SITE !== 'google-ai') return null;
+    let au = null; try { au = new URL(location.href).searchParams.get('authuser'); } catch (_) { /* */ }
+    return W.start + (au && au !== '0' ? '&authuser=' + encodeURIComponent(au) : '');
+  }
   async function report() {
     if (!W || !(set && set.enabled && set.walk && set.walk.on && set.walk.sites && set.walk.sites[SITE])) return 0;
     const items = collect(), sig = items.map(x => x.url || x.title).join('|');
     if (!items.length || sig === lastFound) return items.length;
     lastFound = sig;
-    try { await chrome.runtime.sendMessage({ type: 'aik-walk-found', site: SITE, items }); } catch (_) { /* a bővítmény újratöltve */ }
+    try { await chrome.runtime.sendMessage({ type: 'aik-walk-found', site: SITE, items, start: startHint() }); } catch (_) { /* a bővítmény újratöltve */ }
     return items.length;
   }
   // a legközelebbi görgethető ős (a beszélgetés vagy a lista saját görgető doboza)
@@ -121,20 +136,26 @@
     const r = await capture(true).catch(e => ({ ok: false, error: e.message }));
     return { ok: !!(r && r.ok), turns: r && r.turns, error: r && !r.ok ? (r.error || 'nem sikerült menteni') : undefined, steps };
   }
-  // egy listaoldal: az aljáig görget (a régebbi beszélgetések betöltése), és jelenti, amit talált
+  // egy listaoldal: az aljáig görget (a régebbi beszélgetések betöltése), és jelenti, amit talált.
+  // v0.1.4: képernyőnként lép (nem ugrik az aljára), és GYŰJT – a virtualizált lista (Google AI-mód) mindig csak a látható
+  // sorokat tartja az oldalban, ezért a végén nem lenne meg minden.
   async function readList() {
     await waitFor(() => collect().length, 20000);
-    const first = collect()[0], a = first && [...document.querySelectorAll('a[href]')].find(x => (A.walkKind(SITE, x.href) || {}).url === first.url);
-    const box = scroller(a || (W.click && document.querySelector(W.click)));
-    let n = collect().length, same = 0, steps = 0;
-    for (; steps < 30 && same < 3; steps++) {
-      box.scrollTop = box.scrollHeight; box.dispatchEvent(new Event('scroll'));
-      await sleep(1800);
-      const m = collect().length; if (m === n) same++; else { same = 0; n = m; }
+    const first = collect()[0], a = first && first.url && [...document.querySelectorAll('a[href]')].find(x => (A.walkKind(SITE, x.href) || {}).url === first.url);
+    const box = scroller(a || (W.threads && document.querySelector(W.threads)) || (W.click && document.querySelector(W.click)));
+    const all = new Map(), add = () => { for (const x of collect()) all.set(x.key || x.url || ('c:' + x.title), x); };
+    add();
+    let same = 0, steps = 0;
+    for (; steps < 150 && same < 3; steps++) {
+      const before = box.scrollTop, n = all.size;
+      box.scrollTop = before + Math.max(300, box.clientHeight * 0.8); box.dispatchEvent(new Event('scroll'));
+      await sleep(1200);
+      add();
+      if (all.size === n && box.scrollTop <= before + 2) same++; else same = 0;
     }
     lastFound = '';
-    const items = collect();
-    if (items.length) await chrome.runtime.sendMessage({ type: 'aik-walk-found', site: SITE, items }).catch(() => {});
+    const items = [...all.values()];
+    if (items.length) await chrome.runtime.sendMessage({ type: 'aik-walk-found', site: SITE, items, start: startHint() }).catch(() => {});
     return { ok: true, found: items.length, steps };
   }
   async function walkJob(item) {
@@ -148,7 +169,7 @@
         lastUrl = location.href; lastHash = '';
       }
       const r = await readThrough();
-      return { ...r, url: location.origin + location.pathname, title: document.title };
+      return { ...r, url: SITE === 'google-ai' ? location.href : location.origin + location.pathname, title: document.title };
     } catch (e) { return { ok: false, error: e && e.message || String(e) }; }
   }
   (async () => {

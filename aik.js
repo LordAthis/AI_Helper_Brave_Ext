@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.30 · modul v0.1.3)
+// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.31 · modul v0.1.4)
 // v0.1.2: a tördelés-javítás (aik-repair.js) – ahol a modell egy kódot tartalmazó Markdown-fájlt adott (```markdown, benne
 // ```powershell), és a Gemini ettől szétszedte (a fájl egy része szövegként, a szöveges válasz kódblokkban), a nézet felismeri
 // („javítva” jelzés), a fájlt egyben mutatja (másolás, letöltés .md-ként, előnézet), az eredetire visszaváltható, és az export
@@ -76,10 +76,21 @@
     $('ex-n').textContent = shown.length;
     if (!all.length) { $('list').innerHTML = `<div class="empty">Még nincs mentett beszélgetés. Nyiss meg egy beszélgetést a ChatGPT-n, a Groknál vagy a Google AI-módjában – a modul magától menti (a Beállítások lapon oldalanként kikapcsolható), vagy fent: „Nyitottak mentése”.</div>`; return; }
     if (!shown.length) { $('list').innerHTML = '<div class="empty">A keresésnek / szűrőknek egy beszélgetés sem felel meg.</div>'; return; }
-    $('list').innerHTML = `<table><thead><tr><th>Oldal</th><th>Cím</th><th>Dátum</th><th>Utolsó mentés</th><th>Fordulók</th><th>Kód</th><th>Változat</th><th></th></tr></thead><tbody>${shown.slice(0, 500).map(c => `<tr class="row" data-key="${esc(c.key)}"><td>${siteLabel(c.site)}</td><td><b>${esc(c.title)}</b>${c.garbled ? ` <span class="tag warn" title="A modell a válasz tördelését elrontotta (szétesett Markdown-fájl, szöveg kódblokkban, szétszakított kód). Megnyitva a „javítva” nézet egyben mutatja és másolhatóvá teszi.">tördelés javítva</span>` : ''}${snippet(c, terms)}</td><td>${esc(dayOf(c))}</td><td>${fmt(c.lastSaved)}</td><td>${c.turnCount}</td><td>${esc((c.langs || []).join(', '))}</td><td>${c.version}</td><td style="white-space:nowrap">${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener" title="Megnyitás az oldalon" data-stop>↗</a> ` : ''}${SegitoUI.iconBtn('trash', 'Törlés (minden változatával)', 'data-del="' + esc(c.key) + '"')}</td></tr>`).join('')}</tbody></table>${shown.length > 500 ? `<p class="muted">Az első 500 látszik – szűkíts a keresővel.</p>` : ''}`;
-    SegitoUI.cols($('list'), 'aik-list');
+    // v0.1.4 (LordAthis): a lista szolgáltatónként csoportosítva – oldalanként egy becsukható doboz (a modul oldal-sorrendjében),
+    // azon belül a legutóbb mentett elöl. A „Mind kinyit / Mind becsuk” a számláló mellett.
+    const order = AIK.SITES.map(s => s.id), groups = new Map();
+    for (const c of shown) { if (!groups.has(c.site)) groups.set(c.site, []); groups.get(c.site).push(c); }
+    const ids = [...groups.keys()].sort((a, b) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)));
+    const row = (c) => `<tr class="row" data-key="${esc(c.key)}"><td><b>${esc(c.title)}</b>${c.garbled ? ` <span class="tag warn" title="A modell a válasz tördelését elrontotta (szétesett Markdown-fájl, szöveg kódblokkban, szétszakított kód). Megnyitva a „javítva” nézet egyben mutatja és másolhatóvá teszi.">tördelés javítva</span>` : ''}${snippet(c, terms)}</td><td>${esc(dayOf(c))}</td><td>${fmt(c.lastSaved)}</td><td>${c.turnCount}</td><td>${esc((c.langs || []).join(', '))}</td><td>${c.version}</td><td style="white-space:nowrap">${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener" title="Megnyitás az oldalon" data-stop>↗</a> ` : ''}${SegitoUI.iconBtn('trash', 'Törlés (minden változatával)', 'data-del="' + esc(c.key) + '"')}</td></tr>`;
+    const LIM = 500;
+    $('list').innerHTML = ids.map(id => { const g = groups.get(id), s = AIK.site(id); return `<div class="card aik-group" data-fold="aik-site-${esc(id)}" data-site-group="${esc(id)}"><h3>${siteLabel(id)} <span class="muted">· ${g.length.toLocaleString('hu-HU')} beszélgetés${s && s.short ? ' · ' + esc(s.name) : ''}</span></h3><table><thead><tr><th>Cím</th><th>Dátum</th><th>Utolsó mentés</th><th>Fordulók</th><th>Kód</th><th>Változat</th><th></th></tr></thead><tbody>${g.slice(0, LIM).map(row).join('')}</tbody></table>${g.length > LIM ? `<p class="muted">Az első ${LIM} látszik – szűkíts a keresővel.</p>` : ''}</div>`; }).join('');
+    for (const card of $('list').querySelectorAll('.aik-group')) SegitoUI.cols(card, 'aik-list');
+    SegitoUI.foldable($('list'));
+    $('fold-tools').hidden = ids.length < 2;
     icons($('list'));
   }
+  $('fold-open').addEventListener('click', () => SegitoUI.foldAll($('list'), false));
+  $('fold-close').addEventListener('click', () => SegitoUI.foldAll($('list'), true));
   ['q', 'f-from', 'f-to', 'f-lang', 'f-code', 'f-site'].forEach(id => $(id).addEventListener(id === 'q' ? 'input' : 'change', render));
   $('f-site').innerHTML = '<option value="">Minden oldal</option>' + AIK.SITES.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
   $('list').addEventListener('click', async (e) => {
@@ -267,11 +278,14 @@
     const r = await chrome.runtime.sendMessage({ type: 'aik-walk-status' }).catch(() => null);
     if (!r || !r.ok) { $('w-status').textContent = 'A háttér nem válaszolt.'; return; }
     const w = r.walk;
-    $('w-on').checked = w.on; $('w-min').value = w.minutes; $('w-days').value = w.revisitDays;
+    $('w-on').checked = w.on; $('w-min').value = w.min; $('w-max').value = w.max; $('w-days').value = w.revisitDays;
     $('w-sites').innerHTML = AIK.SITES.filter(x => AIK.WALK[x.id]).map(x => `<label class="c" style="margin-left:12px"><input type="checkbox" data-walk="${esc(x.id)}"${w.sites[x.id] ? ' checked' : ''}> ${siteLabel(x.id)}</label>`).join('');
     icons($('w-sites'));
-    const by = Object.entries(r.bySite).map(([k, v]) => `${esc((AIK.site(k) || {}).name || k)}: ${v}`).join(', ');
-    $('w-status').innerHTML = `${w.on ? '<b class="ok">Bekapcsolva</b>' : '<b class="warn">Kikapcsolva</b>'} · a sorban: <b>${r.queue}</b>${by ? ` (${by})` : ''}${r.cur ? ` · most: <a href="${esc(r.cur.item.url)}" target="_blank" rel="noopener">${esc(r.cur.item.title || r.cur.item.url)}</a> (${fmt(r.cur.at)} óta)` : ''}${r.next && w.on ? ` · a következő: ${fmt(r.next)}` : ''}`;
+    // v0.1.4: oldalanként: a sorban, most mit olvas, mikor jön a következő
+    const cur = r.cur || {}, next = r.next || {};
+    const rows = AIK.SITES.filter(x => AIK.WALK[x.id] && w.sites[x.id]).map(x => { const c = cur[x.id]; return `<tr><td>${siteLabel(x.id)}</td><td>${r.bySite[x.id] || 0}</td><td>${c ? `<a href="${esc(c.item.url)}" target="_blank" rel="noopener">${esc(c.item.title || c.item.url)}</a> <span class="muted">(${fmt(c.at)} óta)</span>` : '–'}</td><td>${w.on && next[x.id] ? fmt(next[x.id]) : '–'}</td></tr>`; }).join('');
+    $('w-status').innerHTML = `${w.on ? '<b class="ok">Bekapcsolva</b>' : '<b class="warn">Kikapcsolva</b>'} · oldalanként ${w.min}–${w.max} percenként · a sorban összesen: <b>${r.queue}</b>${rows ? `<table id="w-sites-st" style="margin-top:6px"><thead><tr><th>Oldal</th><th>A sorban</th><th>Most</th><th>A következő</th></tr></thead><tbody>${rows}</tbody></table>` : ''}`;
+    icons($('w-status'));
     $('w-log').innerHTML = r.log.length ? `<table><thead><tr><th>Mikor</th><th>Oldal</th><th>Mit</th><th>Eredmény</th></tr></thead><tbody>${r.log.map(x => `<tr><td style="white-space:nowrap">${fmt(x.t)}</td><td>${siteLabel(x.site)}</td><td>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title || x.url)}</a>` : esc(x.title || '')}${x.kind === 'list' ? ' <span class="tag">lista</span>' : ''}</td><td>${x.ok ? `<span class="ok">${x.kind === 'list' ? `${x.found || 0} tétel a listán` : `elmentve${x.turns ? ` – ${x.turns} forduló` : ''}`}</span>` : `<span class="bad">${esc(x.error || 'nem sikerült')}</span>`}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Még nem járt be semmit. Nyiss meg egy MI-oldalt (ahol be vagy jelentkezve) – az oldalsáv beszélgetései a sorba kerülnek.</div>';
     SegitoUI.cols($('w-log'), 'aik-walk');
     icons($('w-log'));
@@ -280,7 +294,8 @@
     const done = SegitoUI.busy($('w-save'), 'Mentés…');
     const cur = (await chrome.storage.local.get(SKEY))[SKEY] || {}, sites = {};
     document.querySelectorAll('[data-walk]').forEach(x => { sites[x.dataset.walk] = x.checked; });
-    cur.walk = { on: $('w-on').checked, minutes: Math.min(240, Math.max(2, Math.round(+$('w-min').value || 5))), revisitDays: Math.min(365, Math.max(1, Math.round(+$('w-days').value || 30))), sites };
+    const mn = Math.min(240, Math.max(1, Math.round(+$('w-min').value || 3))), mx = Math.min(240, Math.max(mn, Math.round(+$('w-max').value || 5)));
+    cur.walk = { on: $('w-on').checked, min: mn, max: mx, revisitDays: Math.min(365, Math.max(1, Math.round(+$('w-days').value || 30))), sites };
     await chrome.storage.local.set({ [SKEY]: cur });
     done(); SegitoUI.toast('A bejárás beállításai mentve.', 'ok'); loadWalk();
   });
@@ -288,7 +303,7 @@
     const done = SegitoUI.busy($('w-now'), 'Indítás…');
     const r = await chrome.runtime.sendMessage({ type: 'aik-walk-now' }).catch(() => null);
     done();
-    SegitoUI.toast(!r ? 'A háttér nem válaszolt.' : r.busy ? 'Most is dolgozik egy beszélgetésen – megvárja.' : r.empty ? 'Nincs mit bejárni (üres a sor, és a kezdőlapokat 12 órán belül már végignézte).' : r.started ? `Megnyitva (háttérlapon): ${r.started.title || r.started.url}` : 'Ki van kapcsolva.', r && r.started ? 'ok' : 'info');
+    SegitoUI.toast(!r ? 'A háttér nem válaszolt.' : r.off ? 'Ki van kapcsolva.' : r.startedAll && r.startedAll.length ? `Megnyitva (háttérlapon): ${r.startedAll.map(x => (AIK.site(x.site) || {}).name || x.site).join(', ')}${r.busy && r.busy.length ? ' · dolgozik még: ' + r.busy.length + ' oldalon' : ''}` : r.busy && r.busy.length ? 'Minden bekapcsolt oldalon dolgozik éppen – megvárja.' : 'Nincs mit bejárni (üres a sor, és a kezdőlapokat 12 órán belül már végignézte).', r && r.startedAll && r.startedAll.length ? 'ok' : 'info');
     loadWalk();
   });
   $('w-clear').addEventListener('click', async () => {

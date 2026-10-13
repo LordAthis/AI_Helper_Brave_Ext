@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Segítő – MI-beszélgetések modul: panel (v0.5.30 · modul v0.1.3) – a Segítőben a gyorspanelről nyílik, önálló bővítményként
+<!-- Segítő – MI-beszélgetések modul: panel (v0.5.31 · modul v0.1.4) – a Segítőben a gyorspanelről nyílik, önálló bővítményként
      az ikonjára kattintva. A beállításai kivételesen itt, a saját „Beállítások” lapján vannak (LordAthis kérése). -->
 <html lang="hu">
 <head>
@@ -64,6 +64,7 @@
         <select id="f-lang" title="Kódnyelv (a beszélgetés kódblokkjai alapján)"><option value="">Minden kódnyelv</option></select>
         <label class="c"><input type="checkbox" id="f-code"> Csak kóddal</label>
         <span class="muted" id="count"></span>
+        <span id="fold-tools" hidden><span class="vsep"></span> <button type="button" class="small" id="fold-open" title="Minden oldal dobozának kinyitása">Mind kinyit</button> <button type="button" class="small" id="fold-close" title="Minden oldal dobozának becsukása">Mind becsuk</button></span>
       </div>
       <div id="list"><div class="empty"><span class="spin"></span> Betöltés…</div></div>
     </section>
@@ -104,12 +105,12 @@
       <!-- v0.1.3: a korábbi beszélgetések bejárása -->
       <div class="card" data-fold="aik-walk">
         <h2>Korábbi beszélgetések bejárása</h2>
-        <p class="muted" style="margin-top:0">Az MI-oldalak oldalsávjában (és a projekt- / könyvtároldalakon) lévő korábbi beszélgetéseket a modul magától is megnyitja és <b>végigolvassa</b> – lassan, alapból 5 percenként egyet, egy <b>háttérlapon</b> (nem veszi el a fókuszt, a végén bezárul). A sor a megnyitott MI-oldalaidról gyűlik, és a bejáró a kezdőlapokat (12 óránként) maga is végignézi. Bejelentkezni nem tud: csak ott dolgozik, ahol a böngészőben be vagy jelentkezve.</p>
+        <p class="muted" style="margin-top:0">Az MI-oldalak oldalsávjában (és a projekt- / könyvtároldalakon) lévő korábbi beszélgetéseket a modul magától is megnyitja és <b>végigolvassa</b> – lassan, <b>oldalanként külön</b> (minden szolgáltató a saját ütemében, alapból 3–5 percenként egyet), egy-egy <b>háttérlapon</b> (nem veszi el a fókuszt, a végén bezárul). A sor a megnyitott MI-oldalaidról gyűlik, és a bejáró a kezdőlapokat (12 óránként) maga is végignézi. Bejelentkezni nem tud: csak ott dolgozik, ahol a böngészőben be vagy jelentkezve.</p>
         <div class="sw"><div class="t"><b>Bejárás bekapcsolva</b><span>Csak azokon az oldalakon, ahol lent be van pipálva (alapból: ahol az automatikus mentés is be van kapcsolva).</span></div><div class="ctl"><input type="checkbox" class="toggle" id="w-on"></div></div>
-        <div class="sw"><div class="t"><b>Milyen gyakran</b><span>Ennyi percenként nyit meg egy újabb beszélgetést (legalább 2).</span></div><div class="ctl"><input type="number" id="w-min" min="2" max="240" style="width:80px"> perc</div></div>
+        <div class="sw"><div class="t"><b>Milyen gyakran (oldalanként)</b><span>Minden oldal a saját ütemében: az előző után véletlenszerűen ennyi–ennyi perccel nyit meg egy újabb beszélgetést. Az oldalak egymástól függetlenül, párhuzamosan haladnak (oldalanként egyszerre legfeljebb egy lap).</span></div><div class="ctl"><input type="number" id="w-min" min="1" max="240" style="width:70px"> – <input type="number" id="w-max" min="1" max="240" style="width:70px"> perc</div></div>
         <div class="sw"><div class="t"><b>Újra bejárás</b><span>Egy már elmentett / bejárt beszélgetést ennyi nap után nyit meg újra (a közben bővült beszélgetésekért).</span></div><div class="ctl"><input type="number" id="w-days" min="1" max="365" style="width:80px"> nap</div></div>
-        <div class="sw"><div class="t"><b>Oldalak</b><span>A Google AI-módnak nincs listája – onnan nem lehet bejárni.</span></div><div class="ctl" id="w-sites" style="flex-wrap:wrap;max-width:560px;justify-content:flex-end"></div></div>
-        <div class="toolbar" style="margin-top:10px"><button id="w-save" class="primary" data-ico="save">Mentés</button><button id="w-now" title="A következő beszélgetés megnyitása most (nem vár az időzítőre)">Egyet most</button><span class="push"></span><button id="w-clear" class="small" data-ico="trash" title="A várakozó sor ürítése – a következő körben a kezdőlapokról újra felépül">Sor ürítése</button></div>
+        <div class="sw"><div class="t"><b>Oldalak</b><span>A Google AI-módnál az oldalsáv előzménylistáját (Legújabb) járja be, azzal a Google-fiókkal, amelyikkel legutóbb megnyitottad.</span></div><div class="ctl" id="w-sites" style="flex-wrap:wrap;max-width:560px;justify-content:flex-end"></div></div>
+        <div class="toolbar" style="margin-top:10px"><button id="w-save" class="primary" data-ico="save">Mentés</button><button id="w-now" title="Minden bekapcsolt oldalon a következő beszélgetés megnyitása most (nem vár az időzítőre; ahol éppen dolgozik, ott megvárja)">Most mindegyiken</button><span class="push"></span><button id="w-clear" class="small" data-ico="trash" title="A várakozó sor ürítése – a következő körben a kezdőlapokról újra felépül">Sor ürítése</button></div>
         <div id="w-status" class="muted" style="margin:8px 0"></div>
         <div id="w-log"></div>
       </div>
