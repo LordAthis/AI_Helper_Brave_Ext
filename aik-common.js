@@ -1,11 +1,11 @@
-// Segítő – MI-beszélgetések modul: közös rész (oldalak, HTML → Markdown, segédek) (v0.5.28 · modul v0.1.2)
+// Segítő – MI-beszélgetések modul: közös rész (oldalak, HTML → Markdown, segédek) (v0.5.30 · modul v0.1.3)
 // A MODUL (CLAUDE.md → „Modulok”): ugyanez a mappa a Segítő része (panel a gyorspanelen), és ÖNÁLLÓ bővítményként is
 // betölthető (saját manifest.json). Az adatai teljesen külön vannak: saját adatbázis („segito-aik”), saját beállítások
 // (chrome.storage.local „aik_settings”), saját export-mappa („segito-aik/<Oldal>/…”). A Segítő többi részéhez nem nyúl.
 // Ez a fájl a tartalomszkriptben, a háttérben és a panelen is fut – csak tiszta segédek vannak benne.
 (function (g) {
   if (g.AIK) return;
-  const VERSION = '0.1.2';
+  const VERSION = '0.1.3';
 
   // Az oldalak. folder: az export almappája; auto: alapból menti-e magától (LordAthis kérése: a Claude NEM – „sokkal
   // ügyesebben dolgozol”); ready: van-e az oldalhoz ellenőrzött feldolgozó (mentett minta alapján) – amelyiknél nincs,
@@ -19,6 +19,28 @@
     { id: 'perplexity', name: 'Perplexity', folder: 'Perplexity', home: ['https://www.perplexity.ai/'], auto: true, ready: true, sample: '2026-10-12' }
   ];
   const site = (id) => SITES.find(s => s.id === id) || null;
+
+  // v0.1.3 (LordAthis): a KORÁBBI beszélgetések bejárása. Az oldalak oldalsávjában / listaoldalán lévő beszélgetések címe:
+  //   conv: egy beszélgetés útvonala; list: listaoldal (projekt, könyvtár, „összes beszélgetés”) – ezeken további beszélgetések
+  //   vannak; start: ahonnan a bejáró kezd (itt van a lista); click (Gemini): a beszélgetések nem hivatkozások, hanem kattintható
+  //   sorok – a bejáró a kezdőlapon a CÍMÜK alapján kattint rájuk. A Google AI-módnak nincs listája – kimarad.
+  const WALK = {
+    chatgpt: { start: 'https://chatgpt.com/', conv: /^\/(?:g\/[^/]+\/)?c\/[\w-]+$/, list: [/^\/g\/g-p-[^/]+\/project$/] },
+    grok: { start: 'https://grok.com/', conv: /^\/c\/[\w-]+$/, list: [/^\/project\/[\w-]+$/] },
+    gemini: { start: 'https://gemini.google.com/app', conv: /^\/(?:u\/\d+\/)?(?:app|gem\/[\w-]+)\/[\w-]+$/, list: [], click: '[data-test-id="conversation"]', clickTitle: '.conversation-title' },
+    claude: { start: 'https://claude.ai/recents', conv: /^\/chat\/[0-9a-f-]{36}$/, list: [/^\/project\/[0-9a-f-]{36}$/, /^\/recents$/] },
+    perplexity: { start: 'https://www.perplexity.ai/library', conv: /^\/search\/[^/?#]+$/, list: [/^\/library$/, /^\/spaces?\/[^/?#]+$/] }
+  };
+  // egy cím a bejáró szemével: { kind: 'conv' | 'list', url } vagy null
+  function walkKind(id, href) {
+    const w = WALK[id]; if (!w) return null;
+    let u; try { u = new URL(href); } catch (_) { return null; }
+    if (siteOfUrl(u.href) !== id) return null;
+    const p = u.pathname.replace(/\/+$/, '') || '/';
+    if (w.conv.test(p)) return { kind: 'conv', url: u.origin + p };
+    if (w.list.some(r => r.test(p))) return { kind: 'list', url: u.origin + p };
+    return null;
+  }
   // melyik oldal ez a cím? (a Google keresőből csak az AI-mód: udm=50, vagy az AI-mód beszélgetés-gyökere van az oldalon)
   function siteOfUrl(url) {
     let u; try { u = new URL(url); } catch (_) { return null; }
@@ -123,5 +145,5 @@
   // fájlnév: ékezet marad (a Windows kezeli), tiltott jelek nélkül, rövidítve
   const fileSafe = (s, max = 80) => String(s || 'beszelgetes').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max).replace(/[. ]+$/, '') || 'beszelgetes';
 
-  g.AIK = { VERSION, SITES, site, siteOfUrl, md, codeLang, langsOf, hash, huDate, convText, words, fileSafe };
+  g.AIK = { VERSION, SITES, WALK, walkKind, site, siteOfUrl, md, codeLang, langsOf, hash, huDate, convText, words, fileSafe };
 })(typeof self !== 'undefined' ? self : window);

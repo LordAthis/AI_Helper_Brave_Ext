@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.28 · modul v0.1.2)
+// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.30 · modul v0.1.3)
 // v0.1.2: a tördelés-javítás (aik-repair.js) – ahol a modell egy kódot tartalmazó Markdown-fájlt adott (```markdown, benne
 // ```powershell), és a Gemini ettől szétszedte (a fájl egy része szövegként, a szöveges válasz kódblokkban), a nézet felismeri
 // („javítva” jelzés), a fájlt egyben mutatja (másolás, letöltés .md-ként, előnézet), az eredetire visszaváltható, és az export
@@ -31,7 +31,7 @@
     document.querySelectorAll('#p-nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('main > section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
   }
-  $('p-nav').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) { show(b.dataset.tab); if (b.dataset.tab === 'set') loadSet(); } });
+  $('p-nav').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) { show(b.dataset.tab); if (b.dataset.tab === 'set') { loadSet(); loadWalk(); } } });
 
   // ---------- lista és keresés ----------
   let all = [], shown = [];
@@ -258,9 +258,46 @@
   $('s-save').addEventListener('click', async () => {
     const done = SegitoUI.busy($('s-save'), 'Mentés…');
     const auto = {}; document.querySelectorAll('[data-auto]').forEach(x => { auto[x.dataset.auto] = x.checked; });
-    await chrome.storage.local.set({ [SKEY]: { enabled: $('s-enabled').checked, auto, versionHours: Math.min(720, Math.max(0, Math.round(+$('s-vh').value || 0))) } });
+    const prevS = (await chrome.storage.local.get(SKEY))[SKEY] || {};
+    await chrome.storage.local.set({ [SKEY]: { ...prevS, enabled: $('s-enabled').checked, auto, versionHours: Math.min(720, Math.max(0, Math.round(+$('s-vh').value || 0))) } });
     done(); SegitoUI.toast('Mentve – a megnyitott oldalakon azonnal érvényes.', 'ok'); load();
   });
+  // ---------- v0.1.3: a korábbi beszélgetések bejárása ----------
+  async function loadWalk() {
+    const r = await chrome.runtime.sendMessage({ type: 'aik-walk-status' }).catch(() => null);
+    if (!r || !r.ok) { $('w-status').textContent = 'A háttér nem válaszolt.'; return; }
+    const w = r.walk;
+    $('w-on').checked = w.on; $('w-min').value = w.minutes; $('w-days').value = w.revisitDays;
+    $('w-sites').innerHTML = AIK.SITES.filter(x => AIK.WALK[x.id]).map(x => `<label class="c" style="margin-left:12px"><input type="checkbox" data-walk="${esc(x.id)}"${w.sites[x.id] ? ' checked' : ''}> ${siteLabel(x.id)}</label>`).join('');
+    icons($('w-sites'));
+    const by = Object.entries(r.bySite).map(([k, v]) => `${esc((AIK.site(k) || {}).name || k)}: ${v}`).join(', ');
+    $('w-status').innerHTML = `${w.on ? '<b class="ok">Bekapcsolva</b>' : '<b class="warn">Kikapcsolva</b>'} · a sorban: <b>${r.queue}</b>${by ? ` (${by})` : ''}${r.cur ? ` · most: <a href="${esc(r.cur.item.url)}" target="_blank" rel="noopener">${esc(r.cur.item.title || r.cur.item.url)}</a> (${fmt(r.cur.at)} óta)` : ''}${r.next && w.on ? ` · a következő: ${fmt(r.next)}` : ''}`;
+    $('w-log').innerHTML = r.log.length ? `<table><thead><tr><th>Mikor</th><th>Oldal</th><th>Mit</th><th>Eredmény</th></tr></thead><tbody>${r.log.map(x => `<tr><td style="white-space:nowrap">${fmt(x.t)}</td><td>${siteLabel(x.site)}</td><td>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title || x.url)}</a>` : esc(x.title || '')}${x.kind === 'list' ? ' <span class="tag">lista</span>' : ''}</td><td>${x.ok ? `<span class="ok">${x.kind === 'list' ? `${x.found || 0} tétel a listán` : `elmentve${x.turns ? ` – ${x.turns} forduló` : ''}`}</span>` : `<span class="bad">${esc(x.error || 'nem sikerült')}</span>`}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Még nem járt be semmit. Nyiss meg egy MI-oldalt (ahol be vagy jelentkezve) – az oldalsáv beszélgetései a sorba kerülnek.</div>';
+    SegitoUI.cols($('w-log'), 'aik-walk');
+    icons($('w-log'));
+  }
+  $('w-save').addEventListener('click', async () => {
+    const done = SegitoUI.busy($('w-save'), 'Mentés…');
+    const cur = (await chrome.storage.local.get(SKEY))[SKEY] || {}, sites = {};
+    document.querySelectorAll('[data-walk]').forEach(x => { sites[x.dataset.walk] = x.checked; });
+    cur.walk = { on: $('w-on').checked, minutes: Math.min(240, Math.max(2, Math.round(+$('w-min').value || 5))), revisitDays: Math.min(365, Math.max(1, Math.round(+$('w-days').value || 30))), sites };
+    await chrome.storage.local.set({ [SKEY]: cur });
+    done(); SegitoUI.toast('A bejárás beállításai mentve.', 'ok'); loadWalk();
+  });
+  $('w-now').addEventListener('click', async () => {
+    const done = SegitoUI.busy($('w-now'), 'Indítás…');
+    const r = await chrome.runtime.sendMessage({ type: 'aik-walk-now' }).catch(() => null);
+    done();
+    SegitoUI.toast(!r ? 'A háttér nem válaszolt.' : r.busy ? 'Most is dolgozik egy beszélgetésen – megvárja.' : r.empty ? 'Nincs mit bejárni (üres a sor, és a kezdőlapokat 12 órán belül már végignézte).' : r.started ? `Megnyitva (háttérlapon): ${r.started.title || r.started.url}` : 'Ki van kapcsolva.', r && r.started ? 'ok' : 'info');
+    loadWalk();
+  });
+  $('w-clear').addEventListener('click', async () => {
+    if (!confirm('Üríted a bejárás sorát? (A már mentett beszélgetések megmaradnak.)')) return;
+    await chrome.runtime.sendMessage({ type: 'aik-walk-clear' }).catch(() => null);
+    SegitoUI.toast('A sor ürítve.', 'ok'); loadWalk();
+  });
+  setInterval(() => { if (!document.hidden && $('tab-set').classList.contains('active')) loadWalk(); }, 15000);
+
   $('s-wipe').addEventListener('click', async () => {
     if (!confirm(`Minden mentett beszélgetést (${all.length}) és minden változatát törlöd? Ez nem vonható vissza – előtte érdemes exportálni.`)) return;
     const done = SegitoUI.busy($('s-wipe'), 'Törlés…');
@@ -272,5 +309,5 @@
   setInterval(async () => { const r = await AIKDB.kv.get('recent', []); const t = r[0] ? r[0].t : 0; if (t !== lastSeen) { lastSeen = t; if (!document.hidden) load(); } }, 8000);
   await load();
   lastSeen = ((await AIKDB.kv.get('recent', []))[0] || {}).t || 0;
-  if (location.hash === '#set') { show('set'); loadSet(); }
+  if (location.hash === '#set') { show('set'); loadSet(); loadWalk(); }
 })();
