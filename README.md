@@ -22,7 +22,7 @@ keresés, export, változatok. Önálló alkalmazásnak készült; emellett egy 
   Google-fiókkal, amelyikkel legutóbb megnyitottad). Oldalanként kapcsolható, a Beállítások lapon oldalanként látszik, mi van a
   sorban, mit olvas éppen, mikor jön a következő, és napló mutatja, mit járt be. Csak ott dolgozik, ahol a böngészőben be vagy jelentkezve.
 - **Tördelés-javítás**: ha a modell egy kódot tartalmazó Markdown-fájlt ad (```markdown, benne ```powershell), és a megjelenítő
-  ettől szétszedi (a fájl egy része szövegként, a szöveges válasz kódblokkban – főleg a Gemininél), a modul felismeri, a fájlt
+  ettől szétszedi (a fájl egy része szövegként, a szöveges válasz kódblokkban – főleg a Gemininél, és a Grok-nál), a modul felismeri, a fájlt
   egyben mutatja (Kód másolása, Letöltés .md, Előnézet), és az export is a javítottat viszi. Az eredeti megmarad, visszaváltható.
 - Hosszú beszélgetésnél, ahol az oldal csak a végét tartja meg, a mentések összefésülődnek – a korábbi részek nem vesznek el.
 
