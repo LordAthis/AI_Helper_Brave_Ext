@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: háttér (mentés, változatok) (v0.5.31 · modul v0.1.4)
+// Segítő – MI-beszélgetések modul: háttér (mentés, változatok) (v0.5.32 · modul v0.1.5)
 // A Segítő háttere (background/service-worker.js) és az önálló modul háttere (aik-sw.js) is ezt tölti be. Csak a saját,
 // „aik-” kezdetű üzeneteire válaszol – a Segítő többi üzenetéhez nem nyúl.
 (function (g) {
@@ -101,7 +101,7 @@
   //   – kimarad, amit revisitDays napon belül már bejárt vagy elmentett;
   //   – 4 perc után (beragadt) bezárja, és még egyszer megpróbálja;
   //   – a napló (kv „walklog”) a modul Beállítások lapján látszik.
-  const ALARM = 'aik-walk', CUR = 'walkcur', Q = 'walkq', SEEN = 'walkseen', LOG = 'walklog', STARTS = 'walkstart', NEXT = 'walknext', STARTURL = 'walkstarturl';
+  const ALARM = 'aik-walk', CUR = 'walkcur', Q = 'walkq', SEEN = 'walkseen', LOG = 'walklog', STARTS = 'walkstart', NEXT = 'walknext', STARTURL = 'walkstarturl', INFO = 'walkinfo';
   const now = () => Date.now();
   let walkChain = Promise.resolve();
   const serial = (fn) => { const p = walkChain.then(fn, fn); walkChain = p.catch(() => {}); return p; };
@@ -178,7 +178,9 @@
   async function closeTab(id) { try { await chrome.tabs.remove(id); } catch (_) { /* már bezárult */ } }
   // egy lépés: minden bekapcsolt oldalnál, amelyiknek lejárt az ideje (kézzel: mindegyiknél / a megadott oldalnál azonnal),
   // a beragadt lapot lezárja, és ha nincs futó lapja, a következő tételt megnyitja
-  function walkStep(manual, only) {
+  // v0.1.5: oldalanként a legutóbbi lista-olvasás eredménye és a hibák (a Beállítások lap „hol tart” táblázatához)
+  async function noteInfo(site, patch) { const all = await D.kv.get(INFO, {}); all[site] = { ...(all[site] || {}), ...patch }; await D.kv.set(INFO, all); }
+  function walkStep(manual, only, front) {
     return serial(async () => {
       const set = await settings();
       if (!set.enabled || (!set.walk.on && !manual)) return { ok: false, off: true };
@@ -192,8 +194,18 @@
             if (alive && t - c.at < 4 * 60e3) { busy.push(site); continue; }
             if (alive) await closeTab(c.tabId);
             await walkLog({ site, url: c.item.url, title: c.item.title, ok: false, error: alive ? 'nem végzett 4 percen belül – bezártam' : 'a lap bezárult' });
+            await noteInfo(site, { err: { at: t, error: alive ? 'a bejáró lapja 4 percen belül nem végzett (beragadt)' : 'a bejáró lapja bezárult', url: c.item.url } });
             if ((c.item.tries || 0) < 1) { const q = await D.kv.get(Q, []); q.push({ ...c.item, tries: (c.item.tries || 0) + 1 }); await D.kv.set(Q, q); }
             delete cur[site];
+          }
+          // v0.1.5: „Lista beolvasása előtérben” – a háttérlapon egyes oldalak (görgetésre töltő / virtualizált lista) nem töltik
+          // be a lista végét; az előtérben (gombnyomásra, a felhasználó látja) igen
+          if (front) {
+            const url = (await D.kv.get(STARTURL, {}))[site] || A.WALK[site].start;
+            const item = { key: A.WALK[site].start, site, kind: 'list', url, start: true, front: true, tries: 1 };
+            const tab = await chrome.tabs.create({ url, active: true });
+            cur[site] = { tabId: tab.id, item, at: t }; next[site] = t + gap(set); started.push(item);
+            continue;
           }
           if (!manual && !next[site]) { next[site] = t + Math.random() * set.walk.max * 60e3; continue; }   // az első kör szétszórva (ne nyíljon egyszerre minden lap)
           if (!manual && t < next[site]) continue;
@@ -223,7 +235,10 @@
       await D.kv.set(SEEN, seen);
       delete cur[site]; await D.kv.set(CUR, cur);
       await closeTab(tabId);
-      await walkLog({ site, url: (res && res.url) || c.item.url, title: (res && res.title) || c.item.title, kind: c.item.kind, ok: !!(res && res.ok), turns: res && res.turns, found: res && res.found, steps: res && res.steps, error: res && res.error, ms: t - c.at });
+      await walkLog({ site, url: (res && res.url) || c.item.url, title: (res && res.title) || c.item.title, kind: c.item.kind, ok: !!(res && res.ok), turns: res && res.turns, found: res && res.found, expected: res && res.expected, added: res && res.added, atEnd: res && res.atEnd, front: !!c.item.front, steps: res && res.steps, error: res && res.error, ms: t - c.at });
+      if (c.item.kind === 'list' && res && res.ok) await noteInfo(site, { list: { at: t, url: c.item.url, found: res.found || 0, expected: res.expected || null, added: res.added || 0, atEnd: !!res.atEnd, front: !!c.item.front, hidden: !!res.hidden } });
+      if (res && res.ok && c.item.kind !== 'list') await noteInfo(site, { okAt: t, nOk: ((await D.kv.get(INFO, {}))[site] || {}).nOk + 1 || 1 });
+      if (!(res && res.ok)) await noteInfo(site, { err: { at: t, error: String((res && res.error) || 'ismeretlen hiba').slice(0, 200), url: c.item.url } });
       return { ok: true };
     });
   }
@@ -231,7 +246,11 @@
     const set = await settings(), q = await D.kv.get(Q, []), by = {};
     for (const x of q) by[x.site] = (by[x.site] || 0) + 1;
     const cur = await curMap(), next = await D.kv.get(NEXT, {});
-    return { ok: true, walk: set.walk, queue: q.length, bySite: by, cur: Object.keys(cur).length ? cur : null, next, log: (await D.kv.get(LOG, [])).slice(0, 60) };
+    // v0.1.5: oldalanként: mentett beszélgetések, a legutóbbi lista-olvasás, a következő kezdőlap-bejárás ideje
+    const saved = {}; for (const c of await D.all('convs')) saved[c.site] = (saved[c.site] || 0) + 1;
+    const starts = await D.kv.get(STARTS, {}), startNext = {};
+    for (const id of Object.keys(A.WALK)) startNext[id] = (starts[id] || 0) + 12 * 3600e3;
+    return { ok: true, walk: set.walk, queue: q.length, bySite: by, cur: Object.keys(cur).length ? cur : null, next, info: await D.kv.get(INFO, {}), saved, startNext, log: (await D.kv.get(LOG, [])).slice(0, 60) };
   }
   async function roleOf(tabId) { const m = await curMap(), s = siteOfTab(m, tabId); return { ok: true, item: s ? m[s].item : null }; }
   try {
@@ -252,7 +271,7 @@
     if (msg.type === 'aik-walk-role') return run(sender.tab ? roleOf(sender.tab.id) : Promise.resolve({ ok: true, item: null }));
     if (msg.type === 'aik-walk-done') return run(sender.tab ? walkDone(sender.tab.id, msg.res || {}) : Promise.resolve({ ok: false }));
     if (msg.type === 'aik-walk-status') return run(walkStatus());
-    if (msg.type === 'aik-walk-now') return run(walkStep(true, msg.site ? String(msg.site) : null));
+    if (msg.type === 'aik-walk-now') return run(walkStep(true, msg.site ? String(msg.site) : null, !!(msg.front && msg.site)));
     if (msg.type === 'aik-walk-clear') return run(serial(async () => { await D.kv.set(Q, []); await D.kv.set(STARTS, {}); await D.kv.set(NEXT, {}); return { ok: true }; }));
     return false;
   });

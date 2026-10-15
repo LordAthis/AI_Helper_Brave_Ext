@@ -1,4 +1,4 @@
-# AI Helper – MI-beszélgetések (v0.1.4)
+# AI Helper – MI-beszélgetések (v0.1.5)
 
 Böngésző-kiegészítő (Brave / Chrome, Manifest V3): az MI-csevegésekben folytatott beszélgetések mentése **a saját gépen** –
 keresés, export, változatok. Önálló alkalmazásnak készült; emellett egy másik projekt moduljaként is működik.
@@ -20,7 +20,9 @@ keresés, export, változatok. Önálló alkalmazásnak készült; emellett egy 
   megnyitja és végigolvassa – lassan, **oldalanként külön ütemben** (minden szolgáltató a sajátjában, alapból véletlenszerűen
   3–5 percenként egyet), háttérlapon, ami a végén bezárul. A Google AI-módnál az oldalsáv előzménylistáját járja be (azzal a
   Google-fiókkal, amelyikkel legutóbb megnyitottad). Oldalanként kapcsolható, a Beállítások lapon oldalanként látszik, mi van a
-  sorban, mit olvas éppen, mikor jön a következő, és napló mutatja, mit járt be. Csak ott dolgozik, ahol a böngészőben be vagy jelentkezve.
+  sorban, mit olvas éppen, mikor jön a következő, és hol tart: KÉSZ (minden látott beszélgetés beolvasva) vagy
+  HIÁNYOS LISTA (az oldal szerint több beszélgetés van, mint amennyit a háttérlapon betöltött – ilyenkor a „Lista előtérben” gomb
+  egy előtérben nyíló lapon olvassa végig); napló mutatja, mit járt be. Csak ott dolgozik, ahol a böngészőben be vagy jelentkezve.
 - **Tördelés-javítás**: ha a modell egy kódot tartalmazó Markdown-fájlt ad (```markdown, benne ```powershell), és a megjelenítő
   ettől szétszedi (a fájl egy része szövegként, a szöveges válasz kódblokkban – főleg a Gemininél, és a Grok-nál), a modul felismeri, a fájlt
   egyben mutatja (Kód másolása, Letöltés .md, Előnézet), és az export is a javítottat viszi. Az eredeti megmarad, visszaváltható.
@@ -41,6 +43,7 @@ keresés, export, változatok. Önálló alkalmazásnak készült; emellett egy 
 
 | Verzió | Tartalom |
 |---|---|
+| 0.1.5 | Visszajelzés a bejárásról: oldalanként „Hol tart” (Dolgozik / Vár / KÉSZ / HIÁNYOS LISTA / hiba), mentett beszélgetések száma, a lista-olvasás eredménye (talált / összesen, új); „Lista előtérben” gomb |
 | 0.1.4 | A lista szolgáltatónként csoportosítva (becsukható dobozok); a bejárás oldalanként külön ütemben (3–5 perc, véletlenszerűen); a Google AI-mód előzménylistájának bejárása |
 | 0.1.3 | A korábbi beszélgetések lassú, automatikus bejárása (oldalsáv, projektek, könyvtár) – háttérlapon, napló |
 | 0.1.2 | Tördelés-javítás (szétesett Markdown-fájl, kódblokkba került szöveg, kiszakadt kódsorok); Kód másolása / Letöltés .md / Előnézet a kódblokkokon; bezárható dobozok |

@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: tartalomszkript – a megnyitott beszélgetés mentése (v0.5.31 · modul v0.1.4)
+// Segítő – MI-beszélgetések modul: tartalomszkript – a megnyitott beszélgetés mentése (v0.5.32 · modul v0.1.5)
 // v0.1.3: a KORÁBBI beszélgetések bejárása – (1) a megnyitott oldal oldalsávjában lévő beszélgetéseket / listákat jelenti a
 // háttérnek (percenként, csak ha változott); (2) ha ez a lap a bejáró lapja (a háttér nyitotta), végigolvassa: a beszélgetés
 // elejére görget (a korábbi részek betöltése), onnan lefelé a végéig, közben ment; listaoldalon a lista aljáig görget, és jelent.
@@ -155,8 +155,13 @@
     }
     lastFound = '';
     const items = [...all.values()];
-    if (items.length) await chrome.runtime.sendMessage({ type: 'aik-walk-found', site: SITE, items, start: startHint() }).catch(() => {});
-    return { ok: true, found: items.length, steps };
+    let added = 0;
+    if (items.length) { const r = await chrome.runtime.sendMessage({ type: 'aik-walk-found', site: SITE, items, start: startHint() }).catch(() => null); added = (r && r.added) || 0; }
+    // v0.1.5 (LordAthis: „nincs visszajelzés, hogy mindent beolvasott-e”): hány tétel van a listán az oldal szerint
+    // (virtualizált listánál aria-setsize), és a lista végéig jutott-e (az utolsó görgetések már nem hoztak újat)
+    let expected = 0;
+    for (const el of document.querySelectorAll('[aria-setsize]')) { const n = +el.getAttribute('aria-setsize'); if (n > expected && n < 100000) expected = n; }
+    return { ok: true, found: items.length, expected: expected || null, added, atEnd: same >= 3, steps, hidden: document.visibilityState !== 'visible' };
   }
   async function walkJob(item) {
     try {

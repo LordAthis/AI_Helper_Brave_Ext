@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.31 · modul v0.1.4)
+// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.32 · modul v0.1.5)
 // v0.1.2: a tördelés-javítás (aik-repair.js) – ahol a modell egy kódot tartalmazó Markdown-fájlt adott (```markdown, benne
 // ```powershell), és a Gemini ettől szétszedte (a fájl egy része szövegként, a szöveges válasz kódblokkban), a nézet felismeri
 // („javítva” jelzés), a fájlt egyben mutatja (másolás, letöltés .md-ként, előnézet), az eredetire visszaváltható, és az export
@@ -283,10 +283,27 @@
     icons($('w-sites'));
     // v0.1.4: oldalanként: a sorban, most mit olvas, mikor jön a következő
     const cur = r.cur || {}, next = r.next || {};
-    const rows = AIK.SITES.filter(x => AIK.WALK[x.id] && w.sites[x.id]).map(x => { const c = cur[x.id]; return `<tr><td>${siteLabel(x.id)}</td><td>${r.bySite[x.id] || 0}</td><td>${c ? `<a href="${esc(c.item.url)}" target="_blank" rel="noopener">${esc(c.item.title || c.item.url)}</a> <span class="muted">(${fmt(c.at)} óta)</span>` : '–'}</td><td>${w.on && next[x.id] ? fmt(next[x.id]) : '–'}</td></tr>`; }).join('');
-    $('w-status').innerHTML = `${w.on ? '<b class="ok">Bekapcsolva</b>' : '<b class="warn">Kikapcsolva</b>'} · oldalanként ${w.min}–${w.max} percenként · a sorban összesen: <b>${r.queue}</b>${rows ? `<table id="w-sites-st" style="margin-top:6px"><thead><tr><th>Oldal</th><th>A sorban</th><th>Most</th><th>A következő</th></tr></thead><tbody>${rows}</tbody></table>` : ''}`;
+    // v0.1.5 (LordAthis: „nincs visszajelzés, hogy mindent beolvasott-e, vagy valami miatt elakadt”): oldalanként mit lát a
+    // bejáró – mentett beszélgetések, a legutóbbi lista-olvasás (hány tétel, ebből mennyi új, teljes-e), a legutóbbi hiba, és egy
+    // egyértelmű állapot-szöveg (dolgozik / vár / KÉSZ / HIÁNYOS LISTA / HIBA)
+    const info = r.info || {}, saved = r.saved || {}, sn = r.startNext || {}, T = Date.now();
+    const stateOf = (id) => {
+      const c = cur[id], i = info[id] || {}, L = i.list, q = r.bySite[id] || 0;
+      if (c) return `<b class="ok">Dolgozik</b> – ${c.item.kind === 'list' ? 'a listát olvassa' : 'beszélgetést olvas'}: <a href="${esc(c.item.url)}" target="_blank" rel="noopener">${esc(c.item.title || c.item.url)}</a> <span class="muted">(${fmt(c.at)} óta)</span>`;
+      const err = i.err && (!i.okAt || i.err.at > i.okAt) && T - i.err.at < 24 * 3600e3 ? ` <span class="bad" title="${esc(i.err.url || '')}">· legutóbbi hiba (${fmt(i.err.at)}): ${esc(i.err.error)}</span>` : '';
+      const when = sn[id] && sn[id] > 12 * 3600e3 ? fmt(sn[id]) + ' körül' : 'a következő körben';
+      const partial = L && L.expected && L.found < L.expected;
+      const listTxt = L ? `a lista (${fmt(L.at)}${L.front ? ', előtérben' : ''}): <b>${L.found}</b>${L.expected ? ' / ' + L.expected : ''} tétel, ebből új: ${L.added || 0}` : '';
+      const pTxt = partial ? `<br><b class="warn">HIÁNYOS LISTA</b> – ${listTxt}. A háttérlapon a lista nem töltött tovább – a „Lista előtérben” gombbal egyszer a szemed előtt olvassa végig.` : '';
+      if (q) return `<b>Vár</b> – ${q} beszélgetés a sorban, a következő: ${w.on && next[id] ? fmt(next[id]) : '–'}${err}${pTxt}`;
+      if (!L) return `<span class="muted">Még nem olvasta a listát</span> – a kezdőlapot ${when} nézi meg${err}`;
+      if (partial) return pTxt.slice(4) + err;
+      return `<b class="ok">KÉSZ</b> – minden látott beszélgetés beolvasva; ${listTxt}${L.atEnd ? ' (a lista végéig)' : ''}. Újra ${when} nézi meg a listát.${err}`;
+    };
+    const rows = AIK.SITES.filter(x => AIK.WALK[x.id] && w.sites[x.id]).map(x => `<tr><td>${siteLabel(x.id)}</td><td class="num">${saved[x.id] || 0}</td><td class="num">${r.bySite[x.id] || 0}</td><td>${stateOf(x.id)}</td><td style="white-space:nowrap"><button class="small" data-wfront="${esc(x.id)}" title="A(z) ${esc(AIK.site(x.id).name)} beszélgetés-listájának beolvasása egy ELŐTÉRBEN nyíló lapon (ott a görgetésre töltő lista is végig betölt); a végén a lap bezárul">Lista előtérben</button></td></tr>`).join('');
+    $('w-status').innerHTML = `${w.on ? '<b class="ok">Bekapcsolva</b>' : '<b class="warn">Kikapcsolva</b>'} · oldalanként ${w.min}–${w.max} percenként · a sorban összesen: <b>${r.queue}</b>${rows ? `<table id="w-sites-st" style="margin-top:6px"><thead><tr><th>Oldal</th><th>Mentve</th><th>A sorban</th><th>Hol tart</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : ''}`;
     icons($('w-status'));
-    $('w-log').innerHTML = r.log.length ? `<table><thead><tr><th>Mikor</th><th>Oldal</th><th>Mit</th><th>Eredmény</th></tr></thead><tbody>${r.log.map(x => `<tr><td style="white-space:nowrap">${fmt(x.t)}</td><td>${siteLabel(x.site)}</td><td>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title || x.url)}</a>` : esc(x.title || '')}${x.kind === 'list' ? ' <span class="tag">lista</span>' : ''}</td><td>${x.ok ? `<span class="ok">${x.kind === 'list' ? `${x.found || 0} tétel a listán` : `elmentve${x.turns ? ` – ${x.turns} forduló` : ''}`}</span>` : `<span class="bad">${esc(x.error || 'nem sikerült')}</span>`}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Még nem járt be semmit. Nyiss meg egy MI-oldalt (ahol be vagy jelentkezve) – az oldalsáv beszélgetései a sorba kerülnek.</div>';
+    $('w-log').innerHTML = r.log.length ? `<table><thead><tr><th>Mikor</th><th>Oldal</th><th>Mit</th><th>Eredmény</th></tr></thead><tbody>${r.log.map(x => `<tr><td style="white-space:nowrap">${fmt(x.t)}</td><td>${siteLabel(x.site)}</td><td>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title || x.url)}</a>` : esc(x.title || '')}${x.kind === 'list' ? ' <span class="tag">lista</span>' : ''}</td><td>${x.ok ? `<span class="ok">${x.kind === 'list' ? `${x.found || 0}${x.expected ? ' / ' + x.expected : ''} tétel a listán, új: ${x.added || 0}${x.expected && x.found < x.expected ? ' – HIÁNYOS' : ''}` : `elmentve${x.turns ? ` – ${x.turns} forduló` : ''}`}</span>` : `<span class="bad">${esc(x.error || 'nem sikerült')}</span>`}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Még nem járt be semmit. Nyiss meg egy MI-oldalt (ahol be vagy jelentkezve) – az oldalsáv beszélgetései a sorba kerülnek.</div>';
     SegitoUI.cols($('w-log'), 'aik-walk');
     icons($('w-log'));
   }
@@ -304,6 +321,15 @@
     const r = await chrome.runtime.sendMessage({ type: 'aik-walk-now' }).catch(() => null);
     done();
     SegitoUI.toast(!r ? 'A háttér nem válaszolt.' : r.off ? 'Ki van kapcsolva.' : r.startedAll && r.startedAll.length ? `Megnyitva (háttérlapon): ${r.startedAll.map(x => (AIK.site(x.site) || {}).name || x.site).join(', ')}${r.busy && r.busy.length ? ' · dolgozik még: ' + r.busy.length + ' oldalon' : ''}` : r.busy && r.busy.length ? 'Minden bekapcsolt oldalon dolgozik éppen – megvárja.' : 'Nincs mit bejárni (üres a sor, és a kezdőlapokat 12 órán belül már végignézte).', r && r.startedAll && r.startedAll.length ? 'ok' : 'info');
+    loadWalk();
+  });
+  // v0.1.5: egy oldal listájának beolvasása előtérben (gombnyomásra – a lap a felhasználó szeme előtt nyílik, a végén bezárul)
+  $('w-status').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-wfront]'); if (!b) return;
+    const done = SegitoUI.busy(b, 'Nyitás…');
+    const r = await chrome.runtime.sendMessage({ type: 'aik-walk-now', site: b.dataset.wfront, front: true }).catch(() => null);
+    done();
+    SegitoUI.toast(r && r.startedAll && r.startedAll.length ? 'Megnyitva előtérben – hagyd, hogy végiggörgessen; a végén a lap magától bezárul.' : r && r.busy && r.busy.length ? 'Ezen az oldalon most is dolgozik – várd meg, utána próbáld újra.' : 'Nem sikerült megnyitni (be van kapcsolva az oldal a bejárásban?).', r && r.startedAll && r.startedAll.length ? 'ok' : 'info', 5000);
     loadWalk();
   });
   $('w-clear').addEventListener('click', async () => {
