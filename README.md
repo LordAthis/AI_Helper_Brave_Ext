@@ -1,4 +1,4 @@
-# AI Helper – MI-beszélgetések (v0.1.5)
+# AI Helper – MI-beszélgetések (v0.1.6)
 
 Böngésző-kiegészítő (Brave / Chrome, Manifest V3): az MI-csevegésekben folytatott beszélgetések mentése **a saját gépen** –
 keresés, export, változatok. Önálló alkalmazásnak készült; emellett egy másik projekt moduljaként is működik.
@@ -43,6 +43,7 @@ keresés, export, változatok. Önálló alkalmazásnak készült; emellett egy 
 
 | Verzió | Tartalom |
 |---|---|
+| 0.1.6 | Javítás: a bővítmény frissítése után a már nyitott MI-lapokon a mentés nem működött („az oldal még nem töltötte be a modult”) – a régi példány jelzője kizárta az újat. Most frissítéskor a nyitott lapokba magától újra betöltődik, és a „Nyitottak mentése” is betölti, ahol hiányzik; a hibalista oldalanként összevonva. Új engedély: `scripting`, és a tartalomszkript oldalai (ChatGPT, Grok, Gemini, Google AI-mód, Claude, Perplexity) a `host_permissions`-ben is – ugyanazok az oldalak, mint eddig, csak így tölthető be újra a szkript a nyitott lapokba. |
 | 0.1.5 | Visszajelzés a bejárásról: oldalanként „Hol tart” (Dolgozik / Vár / KÉSZ / HIÁNYOS LISTA / hiba), mentett beszélgetések száma, a lista-olvasás eredménye (talált / összesen, új); „Lista előtérben” gomb |
 | 0.1.4 | A lista szolgáltatónként csoportosítva (becsukható dobozok); a bejárás oldalanként külön ütemben (3–5 perc, véletlenszerűen); a Google AI-mód előzménylistájának bejárása |
 | 0.1.3 | A korábbi beszélgetések lassú, automatikus bejárása (oldalsáv, projektek, könyvtár) – háttérlapon, napló |

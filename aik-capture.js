@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: tartalomszkript – a megnyitott beszélgetés mentése (v0.5.32 · modul v0.1.5)
+// Segítő – MI-beszélgetések modul: tartalomszkript – a megnyitott beszélgetés mentése (v0.5.37 · modul v0.1.6)
 // v0.1.3: a KORÁBBI beszélgetések bejárása – (1) a megnyitott oldal oldalsávjában lévő beszélgetéseket / listákat jelenti a
 // háttérnek (percenként, csak ha változott); (2) ha ez a lap a bejáró lapja (a háttér nyitotta), végigolvassa: a beszélgetés
 // elejére görget (a korábbi részek betöltése), onnan lefelé a végéig, közben ment; listaoldalon a lista aljáig görget, és jelent.
@@ -9,8 +9,11 @@
 // Beállítások lapján; a Claude-nál alapból KI). Kézi mentés: a panel „Mentés most” üzenete (aik-save-now).
 // Ha a modul ÖNÁLLÓ bővítményként is telepítve van, a Segítőben futó példány visszalép (ne mentsen kétszer).
 (async function () {
-  if (window.__aikCapture) return;
-  window.__aikCapture = true;
+  // v0.1.6 (LordAthis 10-19: „Nyitottak mentése” → minden lapon „az oldal még nem töltötte be a modult”): a bővítmény frissítése után
+  // a régi (árva) példány jelzője ugyanabban a szkript-világban marad; eddig egy sima „true” volt, ezért az újra betöltött szkript
+  // azonnal kilépett, az árva pedig már nem ér el semmit. Most a jelző azt mondja meg, él-e még a régi példány.
+  if (window.__aikCapture && typeof window.__aikCapture === 'function' && window.__aikCapture()) return;
+  window.__aikCapture = () => { try { return !!(chrome.runtime && chrome.runtime.id); } catch (_) { return false; } };
   const A = window.AIK, AD = window.AIK_AD;
   if (!A || !AD) return;
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));

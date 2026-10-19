@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.32 · modul v0.1.5)
+// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.37 · modul v0.1.6)
 // v0.1.2: a tördelés-javítás (aik-repair.js) – ahol a modell egy kódot tartalmazó Markdown-fájlt adott (```markdown, benne
 // ```powershell), és a Gemini ettől szétszedte (a fájl egy része szövegként, a szöveges válasz kódblokkban), a nézet felismeri
 // („javítva” jelzés), a fájlt egyben mutatja (másolás, letöltés .md-ként, előnézet), az eredetire visszaváltható, és az export
@@ -242,13 +242,24 @@
   $('btn-save-open').addEventListener('click', async () => {
     const done = SegitoUI.busy($('btn-save-open'), 'Mentés…');
     const tabs = (await chrome.tabs.query({})).filter(t => t.url && AIK.siteOfUrl(t.url));
-    let ok = 0; const bad = [];
+    let ok = 0, injected = 0; const bad = new Map();       // ok → hány lap (oldalanként összevonva)
+    // v0.1.6: ha a lapban nem fut (még / már) a modul – frissítés után, vagy a telepítés előtt nyitott lap –, betölti, és újra próbálja
+    const files = ((chrome.runtime.getManifest().content_scripts || []).find(cs => (cs.js || []).some(f => /aik-capture\.js$/.test(f))) || {}).js || [];
+    const ask = (t) => chrome.tabs.sendMessage(t.id, { type: 'aik-save-now' }).catch(() => null);
     for (const t of tabs) {
-      const r = await chrome.tabs.sendMessage(t.id, { type: 'aik-save-now' }).catch(() => null);
-      if (r && r.ok) ok++; else bad.push(`${(AIK.site(AIK.siteOfUrl(t.url)) || {}).name}: ${(r && (r.error || (r.off && 'kikapcsolva'))) || 'az oldal még nem töltötte be a modult (frissítsd az oldalt)'}`);
+      let r = await ask(t);
+      if (!r && files.length && !t.discarded && chrome.scripting) {
+        try { await chrome.scripting.executeScript({ target: { tabId: t.id }, files }); injected++; } catch (_) { /* nincs jog / nem elérhető */ }
+        for (let i = 0; i < 4 && !r; i++) { await new Promise(res => setTimeout(res, 1200)); r = await ask(t); }
+      }
+      if (r && r.ok) { ok++; continue; }
+      const why = (r && (r.error || (r.off && 'kikapcsolva'))) || (t.discarded ? 'a lap alszik (a böngésző kitette a memóriából – kattints rá)' : 'a modul nem válaszolt a lapon (frissítsd az oldalt)');
+      const k = `${(AIK.site(AIK.siteOfUrl(t.url)) || {}).name}: ${why}`;
+      bad.set(k, (bad.get(k) || 0) + 1);
     }
     done();
-    SegitoUI.toast(!tabs.length ? 'Nincs nyitva támogatott beszélgetés (ChatGPT, Grok, Gemini, Google AI-mód, Claude).' : `${ok} beszélgetés mentve.${bad.length ? ' Nem sikerült: ' + bad.join('; ') : ''}`, !tabs.length ? 'info' : bad.length ? 'warn' : 'ok');
+    const badTxt = [...bad].map(([k, n]) => n > 1 ? `${k} (${n} lap)` : k).join('; ');
+    SegitoUI.toast(!tabs.length ? 'Nincs nyitva támogatott beszélgetés (ChatGPT, Grok, Gemini, Google AI-mód, Claude, Perplexity).' : `${ok} beszélgetés mentve${injected ? ` (${injected} lapba újra betöltöttem a modult)` : ''}.${bad.size ? ' Nem sikerült: ' + badTxt : ''}`, !tabs.length ? 'info' : bad.size ? 'warn' : 'ok');
     load();
   });
 
