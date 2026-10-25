@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: oldalankénti feldolgozók (v0.5.27 · modul v0.1.1)
+// Segítő – MI-beszélgetések modul: oldalankénti feldolgozók (v0.5.39 · modul v0.1.7)
 // extract(doc, url) → { site, cid, title, url, turns: [{ role: 'user' | 'assistant', text (Markdown), at? }], dayHint? } vagy null.
 // Tiszta függvények (csak a kapott dokumentumot olvassák) – a tartalomszkript az élő oldalon, a teszt a mentett mintán hívja.
 // A szerkezetek LordAthis mentett oldalaiból (2026-10-12) – részletesen: docs/MI-beszelgetesek-referencia.md.
@@ -29,7 +29,10 @@
       for (const t of times) if (t.compareDocumentPosition(el) & 4 /* FOLLOWING */) at = t.getAttribute('datetime');
       turns.push({ role: roleOf(el), text, at, mid: (el.getAttribute('data-chatgpt-search-message-ids') || el.getAttribute('data-message-id') || '').split(' ')[0] || null });
     }
-    return { site: 'chatgpt', cid: urlId(url, /\/c\/([\w-]+)/), title: norm(doc.title).replace(/\s*[|–-]\s*ChatGPT$/i, ''), url, turns };
+    // v0.1.7 (LordAthis 10-19, mentett minta): a megosztott beszélgetés / válasz címe /share/<azonosító> vagy /s/<azonosító>
+    // („Ez egy megosztott ChatGPT-csevegés másolata”) – eddig nem volt azonosítója, ezért nem mentődött; a cím eleje „ChatGPT – …”
+    const cid = urlId(url, /\/c\/([\w-]+)/) || (urlId(url, /\/share\/([\w-]+)/) ? 'share-' + urlId(url, /\/share\/([\w-]+)/) : null) || (urlId(url, /\/s\/([\w-]+)/) ? 's-' + urlId(url, /\/s\/([\w-]+)/) : null);
+    return { site: 'chatgpt', cid, title: norm(doc.title).replace(/\s*[|–-]\s*ChatGPT$/i, '').replace(/^ChatGPT\s*[|–-]\s*/i, ''), url, turns, shared: /\/(share|s)\//.test(new URL(url, 'https://chatgpt.com').pathname) || undefined };
   }
 
   // ---------- Grok (grok.com/c/<azonosító>) ----------

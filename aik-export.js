@@ -1,7 +1,10 @@
 // Segítő – MI-beszélgetések modul: megjelenítés, export (MD / JSON / HTML / TXT / DOCX), ZIP, változat-összevetés
-// (v0.5.28 · modul v0.1.2). Külső könyvtár nélkül (a projektben nincs build-eszköz): a DOCX és a ZIP saját, egyszerű összeállítás.
+// (v0.5.39 · modul v0.1.7). Külső könyvtár nélkül (a projektben nincs build-eszköz): a DOCX és a ZIP saját, egyszerű összeállítás.
 // SÖTÉT TÉMA mindenhol (LordAthis: nincs fehér „papír”) – a HTML-, a nyomtatási (PDF) és a DOCX-kimenet is sötét.
 (function (g) {
+  // v0.1.7: a kódblokk nyelvéhez illő fájlkiterjesztés (letöltéshez)
+  const EXT = { powershell: 'ps1', ps1: 'ps1', pwsh: 'ps1', cmd: 'cmd', bat: 'bat', batch: 'cmd', bash: 'sh', sh: 'sh', shell: 'sh', zsh: 'sh', python: 'py', py: 'py', javascript: 'js', js: 'js', typescript: 'ts', ts: 'ts', json: 'json', html: 'html', xml: 'xml', css: 'css', sql: 'sql', yaml: 'yml', yml: 'yml', ini: 'ini', toml: 'toml', c: 'c', cpp: 'cpp', 'c++': 'cpp', csharp: 'cs', 'c#': 'cs', cs: 'cs', java: 'java', php: 'php', go: 'go', rust: 'rs', vb: 'vb', vbs: 'vbs', reg: 'reg', markdown: 'md', md: 'md', csv: 'csv' };
+  const codeExt = (lang) => EXT[String(lang || '').toLowerCase()] || 'txt';
   if (g.AIK_EX) return;
   const A = g.AIK;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -34,7 +37,9 @@
         while (i < lines.length && !FX.closesFence(lines[i], fence)) buf.push(lines[i++]);
         i++;
         const code = buf.join('\n'), lang = fence.lang, isMd = /^(markdown|md)$/i.test(lang);
-        const btns = opt.copy ? `<span class="code-btns">${isMd ? '<button class="copy-code" data-prev type="button" title="A Markdown-fájl formázott előnézete">Előnézet</button><button class="copy-code" data-dl type="button" title="A fájl letöltése .md-ként">Letöltés .md</button>' : ''}<button class="copy-code" data-copy type="button" title="A teljes kód a vágólapra">Kód másolása</button></span>` : '';
+        // v0.1.7: minden kódblokk letölthető, a nyelvnek megfelelő kiterjesztéssel (cmd → .cmd, powershell → .ps1 …)
+        const ext = isMd ? 'md' : codeExt(lang);
+        const btns = opt.copy ? `<span class="code-btns">${isMd ? '<button class="copy-code" data-prev type="button" title="A Markdown-fájl formázott előnézete">Előnézet</button>' : ''}<button class="copy-code" data-dl="${ext}" type="button" title="A kód letöltése .${ext} fájlként">Letöltés .${ext}</button><button class="copy-code" data-copy type="button" title="A teljes kód a vágólapra">Kód másolása</button></span>` : '';
         out.push(`<pre class="code"${lang ? ` data-lang="${esc(lang)}"` : ''}>${lang ? `<span class="lang">${esc(lang)}</span>` : ''}${btns}<code>${esc(code)}</code></pre>`);
         continue;
       }

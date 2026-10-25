@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.37 · modul v0.1.6)
+// Segítő – MI-beszélgetések modul: a panel logikája (v0.5.39 · modul v0.1.7)
 // v0.1.2: a tördelés-javítás (aik-repair.js) – ahol a modell egy kódot tartalmazó Markdown-fájlt adott (```markdown, benne
 // ```powershell), és a Gemini ettől szétszedte (a fájl egy része szövegként, a szöveges válasz kódblokkban), a nézet felismeri
 // („javítva” jelzés), a fájlt egyben mutatja (másolás, letöltés .md-ként, előnézet), az eredetire visszaváltható, és az export
@@ -154,11 +154,12 @@
     // v0.1.2: Markdown-fájl letöltése (a kódblokk tartalma, betűre) és előnézete
     const dl = e.target.closest('[data-dl]');
     if (dl && cur) {
-      const pre = dl.closest('pre'), code = pre.querySelector('code').textContent;
-      const all = [...$('turns').querySelectorAll('pre.code[data-lang="markdown"], pre.code[data-lang="md"]')], k = all.indexOf(pre) + 1;
-      const h = (code.match(/^#{1,3}\s+(.+)$/m) || [])[1];
-      const name = AIK.fileSafe(h || `${cur.title} ${k}`, 70) + '.md';
-      await download(code.endsWith('\n') ? code : code + '\n', `segito-aik/${AIK_EX.folderOf(cur)}/${name}`, MIME.md);
+      // v0.1.7: bármely kódblokk – a kiterjesztés a nyelvből (data-dl); a név: Markdownnál az első címsor, különben a beszélgetés címe + sorszám
+      const pre = dl.closest('pre'), code = pre.querySelector('code').textContent, ext = dl.dataset.dl && dl.dataset.dl !== 'true' ? dl.dataset.dl : 'md';
+      const all = [...$('turns').querySelectorAll('pre.code')], k = all.indexOf(pre) + 1;
+      const h = ext === 'md' ? (code.match(/^#{1,3}\s+(.+)$/m) || [])[1] : null;
+      const name = AIK.fileSafe(h || `${cur.title} ${k}`, 70) + '.' + ext;
+      await download(code.endsWith('\n') ? code : code + '\n', `segito-aik/${AIK_EX.folderOf(cur)}/${name}`, ext === 'md' ? MIME.md : MIME.txt);
       SegitoUI.toast(`Letöltve: ${name}`);
       return;
     }

@@ -1,11 +1,11 @@
-// Segítő – MI-beszélgetések modul: közös rész (oldalak, HTML → Markdown, segédek) (v0.5.37 · modul v0.1.6)
+// Segítő – MI-beszélgetések modul: közös rész (oldalak, HTML → Markdown, segédek) (v0.5.39 · modul v0.1.7)
 // A MODUL (CLAUDE.md → „Modulok”): ugyanez a mappa a Segítő része (panel a gyorspanelen), és ÖNÁLLÓ bővítményként is
 // betölthető (saját manifest.json). Az adatai teljesen külön vannak: saját adatbázis („segito-aik”), saját beállítások
 // (chrome.storage.local „aik_settings”), saját export-mappa („segito-aik/<Oldal>/…”). A Segítő többi részéhez nem nyúl.
 // Ez a fájl a tartalomszkriptben, a háttérben és a panelen is fut – csak tiszta segédek vannak benne.
 (function (g) {
   if (g.AIK) return;
-  const VERSION = '0.1.6';
+  const VERSION = '0.1.7';
 
   // Az oldalak. folder: az export almappája; auto: alapból menti-e magától (LordAthis kérése: a Claude NEM – „sokkal
   // ügyesebben dolgozol”); ready: van-e az oldalhoz ellenőrzött feldolgozó (mentett minta alapján) – amelyiknél nincs,
@@ -121,6 +121,17 @@
       // kódblokk-doboz (fejléc a nyelvvel és a „Másolás” gombbal + egyetlen <pre>): csak a kód kell, a fejléc nem
       if (t !== 'PRE') { const pres = node.querySelectorAll('pre'); if (pres.length === 1 && node.textContent.length - pres[0].textContent.length <= 60) { block(pres[0]); return; } }
       if (t === 'PRE') { const lang = codeLang(node); out.push('```' + lang + '\n' + node.textContent.replace(/\n+$/, '') + '\n```'); return; }
+      // v0.1.7 (ChatGPT 2026-10, mentett minta): a kódblokk már nem <pre>: div[data-code-block] → fejléc (a nyelv, pl. „cmd”;
+      // általános kódnál „Kód”) + div[data-code-block-source] > code (soronként span, a sortörés szövegként). Eddig a kód kimaradt.
+      const cb = node.getAttribute('data-code-block') === 'true' ? node : (!node.querySelector('pre') && node.querySelectorAll('[data-code-block="true"]').length === 1 ? node.querySelector('[data-code-block="true"]') : null);
+      const src = cb && cb.querySelector('[data-code-block-source]');
+      if (cb && src && (cb === node || node.textContent.length - cb.textContent.length <= 80)) {
+        let lang = '';
+        const hd = cb.querySelector('[data-markdown-copy="exclude"]');
+        if (hd) { const w = hd.ownerDocument.createTreeWalker(hd, 4); let n; while ((n = w.nextNode())) { const x = n.nodeValue.trim(); if (x && LANG_RE.test(x) && !UI_LABEL.test(x) && !/^(kód|code|szöveg|text)$/i.test(x)) { lang = x.toLowerCase(); break; } } }
+        out.push('```' + lang + '\n' + src.textContent.replace(/\n+$/, '') + '\n```');
+        return;
+      }
       if (/^H[1-6]$/.test(t) || node.getAttribute('role') === 'heading') { const lv = /^H[1-6]$/.test(t) ? +t[1] : +(node.getAttribute('aria-level') || 3); flush('#'.repeat(Math.min(6, Math.max(1, lv))) + ' ' + inline(node).trim()); return; }
       if (t === 'UL' || t === 'OL') { let i = 0; const items = []; for (const li of node.children) if (li.tagName === 'LI') { i++; items.push((t === 'OL' ? i + '. ' : '- ') + inline(li).trim().replace(/\n/g, '\n  ')); } if (items.length) out.push(items.join('\n')); return; }
       if (t === 'TABLE') { const rows = [...node.querySelectorAll('tr')].map(tr => [...tr.children].map(td => inline(td).trim().replace(/\|/g, '/'))); if (rows.length) { out.push(['| ' + rows[0].join(' | ') + ' |', '| ' + rows[0].map(() => '---').join(' | ') + ' |', ...rows.slice(1).map(r => '| ' + r.join(' | ') + ' |')].join('\n')); } return; }

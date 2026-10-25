@@ -1,4 +1,4 @@
-// Segítő – MI-beszélgetések modul: háttér (mentés, változatok) (v0.5.32 · modul v0.1.5)
+// Segítő – MI-beszélgetések modul: háttér (mentés, változatok) (v0.5.39 · modul v0.1.7)
 // A Segítő háttere (background/service-worker.js) és az önálló modul háttere (aik-sw.js) is ezt tölti be. Csak a saját,
 // „aik-” kezdetű üzeneteire válaszol – a Segítő többi üzenetéhez nem nyúl.
 (function (g) {
@@ -125,12 +125,17 @@
   }
   // a már elmentett beszélgetések címe és azonosítója → utolsó mentés (2 percig gyorsítótárban – a lista percenként jön)
   let savedCache = { t: 0, map: null };
+  // v0.1.7: a ChatGPT új kódblokkjai (div[data-code-block], nem <pre>) eddig kimaradtak a mentésből – az ennél régebben mentett /
+  // bejárt ChatGPT-beszélgetéseket a bejáró egyszer újra végigolvassa (a mentés új változatot kap, a régi megmarad)
+  const REDO_BEFORE = { chatgpt: Date.UTC(2026, 9, 19, 2, 30) };
+  const fresh = (site, at) => (at || 0) >= (REDO_BEFORE[site] || 0);
   async function savedUrls(site) {
     if (!savedCache.map || now() - savedCache.t > 120e3) {
       const map = new Map();
       for (const c of await D.all('convs')) {
-        if (c.url && c.site !== 'google-ai') map.set(c.site + '|' + String(c.url).split(/[?#]/)[0].replace(/\/+$/, ''), c.lastSaved || 0);
-        if (c.cid) map.set(c.site + '|cid:' + c.cid, c.lastSaved || 0);
+        const at = fresh(c.site, c.lastSaved) ? c.lastSaved || 0 : 0;
+        if (c.url && c.site !== 'google-ai') map.set(c.site + '|' + String(c.url).split(/[?#]/)[0].replace(/\/+$/, ''), at);
+        if (c.cid) map.set(c.site + '|cid:' + c.cid, at);
       }
       savedCache = { t: now(), map };
     }
@@ -151,7 +156,7 @@
         const key = it.key ? String(it.key) : kind === 'click' ? `${site}:click:${String(it.title || '').slice(0, 120)}` : String(it.url || '');
         if (!key || inQ.has(key)) continue;
         const sv = it.cid ? 'cid:' + it.cid : key;
-        if (kind === 'conv' && ((seen[key] && t - seen[key] < keep) || (saved.has(sv) && t - saved.get(sv) < keep))) continue;
+        if (kind === 'conv' && ((seen[key] && fresh(site, seen[key]) && t - seen[key] < keep) || (saved.has(sv) && t - saved.get(sv) < keep))) continue;
         if (kind === 'list' && seen[key] && t - seen[key] < 12 * 3600e3) continue;
         if (kind === 'click' && seen[key] && t - seen[key] < keep) continue;
         q.push({ key, site, kind, url: kind === 'click' ? A.WALK[site].start : String(it.url || key), title: String(it.title || '').slice(0, 160), added: t, tries: 0 });
