@@ -1,4 +1,4 @@
-/* Segítő – közös stíluslap a saját oldalakhoz (v0.5.31) – sötét téma, fehér „papír” nélkül */
+/* Segítő – közös stíluslap a saját oldalakhoz (v0.5.65, 2026-11-12) – sötét téma, fehér „papír” nélkül */
 :root { color-scheme: dark; --bg:#1c1d20; --card:#26282c; --line:#44474d; --text:#e8eaed; --muted:#9aa0a6; --accent:#8ab4f8; --ok:#34a853; --warn:#f5b400; --bad:#ea4335; }
 * { box-sizing: border-box; }
 body { margin:0; font:14px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--text); }
@@ -202,4 +202,7 @@ nav button.mono.has-ico .mono-badge { border:0; padding:0; min-width:0; height:a
 .fold-btn:hover, .fold-btn:focus-visible { color:var(--text); background:rgba(255,255,255,.08); outline:none; }
 .card.folded .fold-btn::before { transform:rotate(-90deg); }
 .card.folded > :not(h2):not(h3) { display:none !important; }
+/* v0.5.65: a cím egy sor elején (pl. .snap-row > h2) – a sor marad, a többi eltűnik */
+.card.folded.fold-deep > :first-child { display:flex !important; }
+.card.fold-deep.folded > :first-child > :not(h2):not(h3) { display:none !important; }
 .card.folded > h2, .card.folded > h3 { margin-bottom:0; }

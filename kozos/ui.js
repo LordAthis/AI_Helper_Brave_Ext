@@ -1,4 +1,4 @@
-// Segítő – közös felületi elemek a saját oldalakhoz (v0.5.31)
+// Segítő – közös felületi elemek a saját oldalakhoz (v0.5.65, 2026-11-12)
 // – egységes ikonok: törlés = kuka, mentés = floppy, szerkesztés = ceruza, frissítés = körbeforduló nyíl;
 //   a gombra elég a data-ico="trash|save|edit|refresh" jelölés (data-ico-only: csak ikon, a felirat buborékba kerül),
 // – visszajelzés: SegitoUI.busy(gomb, 'Folyamatban…') azonnal forgó jelet tesz a gombra, a visszaadott függvény állítja vissza;
@@ -381,21 +381,25 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => decorate());
     else decorate();
   }
-  // v0.5.28 – BEZÁRHATÓ DOBOZOK (LordAthis kérése, 029.png): minden címmel (h2 / h3) kezdődő doboz (.card), ami nem 1–2 soros,
-  // a címe elején nyitó / záró gombot kap. A becsukott dobozból csak a cím látszik. Az állapotot a böngésző megjegyzi
-  // (oldalanként, a doboz címe vagy a data-fold="<kulcs>" alapján – localStorage, csak ezen a gépen).
-  //   data-fold="<kulcs>" → mindig bezárható (a magasságtól függetlenül); data-nofold → soha; .sample-card → soha.
-  // A rejtett lapfülön lévő dobozt (nincs mérete) a ResizeObserver akkor nézi meg, amikor láthatóvá válik.
-  const FOLD_MIN = 110;                               // ennél kisebb tartalom (kb. 2 sor) nem kap gombot
+  // v0.5.28 – BEZÁRHATÓ DOBOZOK (LordAthis kérése, 029.png): a doboz (.card) címe elején nyitó / záró gomb. A becsukott
+  // dobozból csak a cím látszik. Az állapotot a böngésző megjegyzi (oldalanként, a doboz címe vagy a data-fold="<kulcs>"
+  // alapján – localStorage, csak ezen a gépen).
+  // v0.5.65 (LordAthis 11-12: „Ez még mindig nem becsukható!!!”, „Szokásos, nem zárható…”): MINDEN címmel rendelkező doboz
+  // becsukható, a magasságától függetlenül (eddig az 1–2 sorosak kimaradtak, és a rejtett lapfülön lévő doboz az első
+  // megjelenéskor – még üres tartalommal – „rövidnek” minősült, és úgy is maradt). A cím: az első közvetlen h2 / h3, vagy az
+  // első gyerek-elemben lévő (pl. .snap-row > h2). Cím nélküli doboz: a data-fold-title="…" ad neki címet. A később
+  // (szkriptből) kirajzolt dobozokat egy MutationObserver kapja el (csak a saját oldalainkon – tartalomszkriptben nem fut).
+  //   data-nofold → soha (csak belső, szerkezeti dobozoknál: kereső-találatok, eszközsáv); .sample-card → soha.
   const foldKey = (card, h) => 'segito_fold:' + location.pathname + ':' + (card.dataset.fold || [...h.childNodes].filter(n => n.nodeType === 3 || (n.nodeType === 1 && !n.matches('button, label, input, .muted, .tag, .fold-btn'))).map(n => n.textContent).join('').trim());
-  let foldRO = null;
+  function foldHead(card) {
+    let h = card.querySelector(':scope > h2, :scope > h3');
+    if (!h && card.firstElementChild && !/^(TABLE|UL|OL)$/.test(card.firstElementChild.tagName)) h = card.firstElementChild.querySelector(':scope > h2, :scope > h3');
+    if (!h && card.dataset.foldTitle) { h = document.createElement('h3'); h.className = 'fold-title'; h.textContent = card.dataset.foldTitle; card.prepend(h); }
+    return h;
+  }
   function foldOne(card) {
     if (card.dataset.foldDone) return true;
-    const h = card.querySelector(':scope > h2:first-child, :scope > h3:first-child'); if (!h) { card.dataset.foldDone = 'x'; return true; }
-    if (!card.hasAttribute('data-fold')) {
-      if (!card.offsetHeight) return false;           // még rejtett – később
-      if (card.scrollHeight - h.offsetHeight < FOLD_MIN) { card.dataset.foldDone = 'x'; return true; }
-    }
+    const h = foldHead(card); if (!h) { card.dataset.foldDone = 'x'; return true; }
     card.dataset.foldDone = '1';
     const key = foldKey(card, h);
     const btn = document.createElement('button');
@@ -411,19 +415,26 @@
     card._fold = (fold) => set(fold, true);
     h.prepend(btn);
     card.classList.add('foldable');
+    if (h !== card.firstElementChild) card.classList.add('fold-deep');   // a cím egy sor elején van – a sor marad látható
     set(!!lsGet(key), false);
     return true;
   }
+  let foldMO = null, foldQ = new Set(), foldT = 0;
   function foldable(root) {
     if (typeof document === 'undefined') return;
     const scope = root || document;
     const cards = [...(scope.matches && scope.matches('.card') ? [scope] : []), ...scope.querySelectorAll('.card')];
     for (const card of cards) {
       if (card.dataset.foldDone || card.classList.contains('sample-card') || card.hasAttribute('data-nofold')) continue;
-      if (!foldOne(card) && typeof ResizeObserver !== 'undefined') {
-        foldRO = foldRO || new ResizeObserver((ents) => { for (const en of ents) if (en.target.offsetHeight && foldOne(en.target)) foldRO.unobserve(en.target); });
-        foldRO.observe(card);
-      }
+      foldOne(card);
+    }
+    // a később kirajzolt dobozok (egyszer indul, a saját oldalainkon)
+    if (!foldMO && typeof MutationObserver !== 'undefined' && document.body && /^(chrome-extension|moz-extension):$/.test(location.protocol)) {
+      foldMO = new MutationObserver((muts) => {
+        for (const m of muts) for (const n of m.addedNodes) if (n.nodeType === 1 && (n.classList.contains('card') || n.querySelector('.card'))) foldQ.add(n);
+        if (foldQ.size && !foldT) foldT = setTimeout(() => { foldT = 0; const q = [...foldQ]; foldQ.clear(); for (const n of q) if (n.isConnected) foldable(n); }, 50);
+      });
+      foldMO.observe(document.body, { childList: true, subtree: true });
     }
   }
   // „Mind kinyit / Mind becsuk”: a dobozok és a fák legfelső ágai (details) egyszerre
